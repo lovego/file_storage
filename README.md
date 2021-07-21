@@ -7,8 +7,8 @@
 [![Documentation](https://pkg.go.dev/badge/github.com/lovego/file_storage)](https://pkg.go.dev/github.com/lovego/file_storage@v0.0.1)
 
 ## Features
+- Files always have one owner.
 - Sync files to multiple machines using a scp command.
 - Download files using nginx internal redirect.
-- Files always have at least one owner.
 
 
