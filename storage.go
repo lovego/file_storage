@@ -3,18 +3,20 @@ package file_storage
 
 import (
 	"database/sql"
+	"errors"
 	"mime/multipart"
 	"net/http"
-
-	"github.com/lovego/addrs"
+	"path"
 )
 
 type Storage struct {
 	ScpUser     string
 	ScpMachines []string
 	ScpPath     string
+	DirDepth    uint8
 
-	ExternalURL string
+	// path prefix for "X-Accel-Redirect" Response Header.
+	XAccelRedirectPrefix string
 
 	FilesTable string
 	LinksTable string
@@ -29,6 +31,23 @@ type DB interface {
 }
 
 func (s *Storage) Init(db DB) error {
+	if len(s.ScpMachines) == 0 {
+		return errors.New("ScpMachines is empty.")
+	}
+	if s.ScpPath == "" {
+		return errors.New("ScpPath is empty.")
+	}
+	if s.DirDepth == 0 {
+		s.DirDepth = 2
+	} else if s.DirDepth > 8 {
+		return errors.New("DirDepth at most be 8.")
+	}
+	if s.XAccelRedirectPrefix == "" {
+		s.XAccelRedirectPrefix = "/fs"
+	} else if s.XAccelRedirectPrefix[0] != '/' {
+		s.XAccelRedirectPrefix = "/" + s.XAccelRedirectPrefix
+	}
+
 	if err := s.createFilesTable(db); err != nil {
 		return err
 	}
@@ -44,6 +63,9 @@ func (s *Storage) Upload(
 	db DB, contentTypeCheck func(*multipart.FileHeader, string) error, object string,
 	files ...*multipart.FileHeader,
 ) ([]string, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
 	records, err := s.createFileRecords(db, files, contentTypeCheck)
 	defer func() {
 		for i := range records {
@@ -57,45 +79,38 @@ func (s *Storage) Upload(
 	for i := range records {
 		hashes = append(hashes, records[i].Hash)
 	}
-	for i := range records {
-		if err := s.saveFile(records[i].File, records[i].Hash); err != nil {
+	if object != "" {
+		if err := s.Link(db, object, hashes...); err != nil {
 			return nil, err
+		}
+	}
+	for i := range records {
+		if records[i].New {
+			if err := s.saveFile(records[i].File, records[i].Hash); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return hashes, nil
 }
 
-// download file, if object is not empty, the file must be linked to it, otherwise an error is returned.
+/* download file, if object is not empty, the file must be linked to it, otherwise an error is returned.
+An location like following is required in nginx virtual server config.
+	location /fs/ {
+	  internal;
+	  alias /data/file-storage;
+	}
+The location prefix should be XAccelRedirectPrefix + "/", the alias path should be ScpPath.
+*/
 func (s *Storage) Download(
-	db DB, resp *http.ResponseWriter, file string, object string,
+	db DB, resp http.ResponseWriter, file string, object string,
 ) error {
-	return nil
-}
-
-func (s *Storage) saveFile(file multipart.File, hash string) error {
-	if s.localMachine {
-	}
-	for _, addr := range s.otherMachines {
-		if err := s.scpFile(file, addr, path); err != nil {
+	if object != "" {
+		if err := s.EnsureLinked(db, object, file); err != nil {
 			return err
 		}
 	}
-	return nil
-}
+	resp.Header().Set("X-Accel-Redirect", path.Join(s.XAccelRedirectPrefix, s.FilePath(file)))
 
-func (s *Storage) scpFile(file multipart.File, addr, path string) error {
-	return nil
-}
-
-func (s *Storage) parseMachines() error {
-	for _, addr := range s.ScpMachines {
-		if ok, err := addrs.IsLocalhost(addr); err != nil {
-			return err
-		} else if ok {
-			s.localMachine = true
-		} else {
-			s.otherMachines = append(s.otherMachines, addr)
-		}
-	}
 	return nil
 }

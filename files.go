@@ -7,7 +7,10 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/lovego/slice"
 )
 
 func (s *Storage) createFilesTable(db DB) error {
@@ -31,6 +34,7 @@ type fileRecord struct {
 	Type string
 	Size int64
 	File multipart.File
+	New  bool
 }
 
 func (s *Storage) createFileRecords(
@@ -75,10 +79,31 @@ func (s *Storage) insertFileRecords(db DB, records []fileRecord) error {
 		))
 	}
 
-	_, err := db.Exec(fmt.Sprintf(`
-	INSERT INTO %s (hash, type, size, created_at)
-	VALUES %s
-	`, s.FilesTable))
+	rows, err := db.Query(fmt.Sprintf(`
+	INSERT INTO %s
+		(hash, type, size, created_at)
+	VALUES
+		%s
+	ON CONFLICT (hash) DO NOTHING
+	RETURNING hash
+	`, s.FilesTable, strings.Join(values, ",\n\t\t"),
+	))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var inserted []string
+	for rows.Next() {
+		var hash string
+		if err := rows.Scan(&hash); err != nil {
+			return err
+		}
+		inserted = append(inserted, hash)
+	}
+	for i := range records {
+		records[i].New = slice.ContainsString(inserted, records[i].Hash)
+	}
+
 	return err
 }
 
