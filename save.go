@@ -78,7 +78,7 @@ func (s *Storage) FilePath(hash string) string {
 	var path string
 	var i uint8
 	for ; i < s.DirDepth; i++ {
-		path = filepath.Join(path, hash[2*i:2*i+2])
+		path = filepath.Join(path, hash[i:i+1])
 	}
 	return filepath.Join(path, hash)
 }

@@ -23,7 +23,7 @@ func ExampleStorage_Upload() {
 	fmt.Println(s.Upload(testDB, nil, "", testFileHeaders...))
 
 	// Output:
-	// [4c468b3b16999fd9578189576d5f770cb4a16ad9fca0e798a251f00a54a87c5d 1c46e2f0f5767113dff10781f257ac87a8163c09a201d6bbc466ab6e302ff2fe] <nil>
+	// [TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF0 HEbi8PV2cRPf8QeB8lesh6gWPAmiAda7xGarbjAv8v4] <nil>
 }
 
 func getFileHeaders() []*multipart.FileHeader {

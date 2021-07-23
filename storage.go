@@ -38,7 +38,7 @@ func (s *Storage) Init(db DB) error {
 		return errors.New("ScpPath is empty.")
 	}
 	if s.DirDepth == 0 {
-		s.DirDepth = 2
+		s.DirDepth = 3
 	} else if s.DirDepth > 8 {
 		return errors.New("DirDepth at most be 8.")
 	}

@@ -2,7 +2,7 @@ package file_storage
 
 import (
 	"crypto/sha256"
-	"encoding/hex"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -127,5 +127,5 @@ func getContentHash(file multipart.File) (string, error) {
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return "", err
 	}
-	return hex.EncodeToString(h.Sum(nil)), nil
+	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)), nil
 }
