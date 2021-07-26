@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -143,4 +145,38 @@ func filesCond(files []string, not string) string {
 		quoted[i] = quote(files[i])
 	}
 	return fmt.Sprintf(" AND file %s IN (%s)", not, strings.Join(quoted, ", "))
+}
+
+var objectRegexp = regexp.MustCompile(`^(\w+)\.(\d+)(\.(\w+))?$`)
+var errInvalidObject = errors.New("invalid LinkObject")
+
+// LinkObject is a structured reference implementaion for link object string.
+type LinkObject struct {
+	Table string
+	ID    int64
+	Field string
+}
+
+func (o LinkObject) String() string {
+	s := o.Table + "." + strconv.FormatInt(o.ID, 10)
+	if o.Field != "" {
+		s += "." + o.Field
+	}
+	return s
+}
+
+// UnmarshalJSON implements json.Unmarshaler
+func (o *LinkObject) UnmarshalJSON(b []byte) error {
+	m := objectRegexp.FindStringSubmatch(string(b))
+	if len(m) == 0 {
+		return errInvalidObject
+	}
+	o.Table = m[1]
+	if id, err := strconv.ParseInt(m[2], 10, 64); err != nil {
+		return errInvalidObject
+	} else {
+		o.ID = id
+	}
+	o.Field = m[4]
+	return nil
 }
