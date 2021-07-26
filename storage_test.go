@@ -1,29 +1,61 @@
 package file_storage
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"mime/multipart"
+	"path/filepath"
 	"strings"
 
 	_ "github.com/lib/pq"
 )
 
 var testDB = getDB()
+var testStorage = getStorage()
 var testFileHeaders = getFileHeaders()
 
 func ExampleStorage_Upload() {
-	s := Storage{
-		ScpMachines: []string{"localhost"},
-		ScpPath:     "tmp/",
-	}
-	if err := s.Init(testDB); err != nil {
+	db, err := testDB.BeginTx(context.Background(), nil)
+	if err != nil {
 		panic(err)
 	}
-	fmt.Println(s.Upload(testDB, nil, "", testFileHeaders...))
+	if files, err := testStorage.Upload(db, nil, "", testFileHeaders...); err != nil {
+		panic(err)
+	} else {
+		fmt.Println(files)
+	}
+	if err := db.Commit(); err != nil {
+		panic(err)
+	}
 
 	// Output:
-	// [TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF0 HEbi8PV2cRPf8QeB8lesh6gWPAmiAda7xGarbjAv8v4] <nil>
+	// [TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF0 HEbi8PV2cRPf8QeB8lesh6gWPAmiAda7xGarbjAv8v4]
+
+}
+
+func ExampleStorage_Link() {
+	fmt.Println(testStorage.UnlinkAllOf(testDB, "object"))
+	fmt.Println(testStorage.Link(testDB, "object", "file1", "file2", "file3"))
+	fmt.Println(testStorage.FilesOf(testDB, "object"))
+	// Output:
+	// <nil>
+	// <nil>
+	// [file1 file2 file3] <nil>
+}
+
+func ExampleStorage_LinkOnly() {
+	fmt.Println(testStorage.LinkOnly(testDB, "object", "file3", "file4"))
+	fmt.Println(testStorage.FilesOf(testDB, "object"))
+	fmt.Println(testStorage.EnsureLinked(testDB, "object", "file3"))
+	fmt.Println(testStorage.Unlink(testDB, "object", "file3", "file4"))
+	fmt.Println(testStorage.Linked(testDB, "object", "file3"))
+	// Output:
+	// <nil>
+	// [file3 file4] <nil>
+	// <nil>
+	// <nil>
+	// false <nil>
 }
 
 func getFileHeaders() []*multipart.FileHeader {
@@ -48,9 +80,30 @@ Content-Transfer-Encoding: binary
 	return form.File["file"]
 }
 
+func getStorage() *Storage {
+	tmpDir, err := filepath.Abs("tmp")
+	if err != nil {
+		panic(err)
+	}
+	s := Storage{
+		ScpMachines: []string{"localhost"},
+		ScpPath:     tmpDir,
+	}
+	if err := s.Init(testDB); err != nil {
+		panic(err)
+	}
+	return &s
+}
+
 func getDB() *sql.DB {
 	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost/postgres?sslmode=disable")
 	if err != nil {
+		panic(err)
+	}
+	if _, err := db.Exec(`
+		DROP TABLE IF EXISTS files;
+		DROP TABLE IF EXISTS file_links;
+	`); err != nil {
 		panic(err)
 	}
 	return db

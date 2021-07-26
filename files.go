@@ -72,10 +72,10 @@ func (s *Storage) createFileRecords(
 
 func (s *Storage) insertFileRecords(db DB, records []fileRecord) error {
 	var values []string
-	now := time.Now().Format("2006-01-02T15:04:05.999999Z07:00")
+	now := nowTime()
 	for _, record := range records {
-		values = append(values, fmt.Sprintf("('%s', '%s', %d, '%s')",
-			record.Hash, record.Type, record.Size, now,
+		values = append(values, fmt.Sprintf("(%s, %s, %d, %s)",
+			quote(record.Hash), quote(record.Type), record.Size, now,
 		))
 	}
 
@@ -128,4 +128,14 @@ func getContentHash(file multipart.File) (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)), nil
+}
+
+func nowTime() string {
+	return time.Now().Format("'2006-01-02T15:04:05.999999Z07:00'")
+}
+
+func quote(s string) string {
+	s = strings.Replace(s, "'", "''", -1)
+	s = strings.Replace(s, "\000", "", -1)
+	return "'" + s + "'"
 }

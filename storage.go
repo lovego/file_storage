@@ -24,8 +24,8 @@ type Storage struct {
 	localMachine  bool
 	otherMachines []string
 }
-
 type DB interface {
+	QueryRow(query string, args ...interface{}) *sql.Row
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
 }
@@ -36,6 +36,9 @@ func (s *Storage) Init(db DB) error {
 	}
 	if s.ScpPath == "" {
 		return errors.New("ScpPath is empty.")
+	}
+	if s.ScpPath[0] != '/' {
+		return errors.New("ScpPath is not an absolute path.")
 	}
 	if s.DirDepth == 0 {
 		s.DirDepth = 3

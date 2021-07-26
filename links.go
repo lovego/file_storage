@@ -1,10 +1,13 @@
 package file_storage
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 )
 
+var errEmptyObject = errors.New("object is empty")
 var errNotLinked = errors.New("the file is not linked to the object")
 
 func IsNotLinked(err error) bool {
@@ -31,22 +34,62 @@ func (s *Storage) createLinksTable(db DB) error {
 
 // link files to object.
 func (s *Storage) Link(db DB, object string, files ...string) error {
-	return nil
+	if object == "" {
+		return errEmptyObject
+	}
+	if len(files) == 0 {
+		return nil
+	}
+
+	var values []string
+	now := nowTime()
+	for _, file := range files {
+		values = append(values, fmt.Sprintf("(%s, %s, %s)", quote(file), quote(object), now))
+	}
+	_, err := db.Exec(fmt.Sprintf(`
+	INSERT INTO %s (file, object, created_at)
+	VALUES %s
+	ON CONFLICT (file, object) DO NOTHING
+	`, s.LinksTable, strings.Join(values, ", "),
+	))
+	return err
 }
 
 // make sure files and only files are linked to object.
 func (s *Storage) LinkOnly(db DB, object string, files ...string) error {
-	return nil
-}
-
-// unlink files from object.
-func (s *Storage) Unlink(db DB, object string, files ...string) error {
-	return nil
+	if err := s.Link(db, object, files...); err != nil {
+		return err
+	}
+	if len(files) == 0 {
+		return s.unlink(db, object, "")
+	}
+	return s.unlink(db, object, filesCond(files, "NOT"))
 }
 
 // unlink all linked files from an object.
 func (s *Storage) UnlinkAllOf(db DB, object string) error {
-	return nil
+	if object == "" {
+		return errEmptyObject
+	}
+	return s.unlink(db, object, "")
+}
+
+// unlink files from object.
+func (s *Storage) Unlink(db DB, object string, files ...string) error {
+	if object == "" {
+		return errEmptyObject
+	}
+	if len(files) == 0 {
+		return nil
+	}
+	return s.unlink(db, object, filesCond(files, ""))
+}
+
+func (s *Storage) unlink(db DB, object string, conds string) error {
+	_, err := db.Exec(
+		fmt.Sprintf(`DELETE FROM %s WHERE object = %s `, s.LinksTable, quote(object)) + conds,
+	)
+	return err
 }
 
 // ensure file is linked to object.
@@ -61,10 +104,42 @@ func (s *Storage) EnsureLinked(db DB, object, file string) error {
 
 // check if file is linked to object.
 func (s *Storage) Linked(db DB, object, file string) (bool, error) {
-	return false, nil
+	row := db.QueryRow(fmt.Sprintf(`
+	SELECT true FROM %s WHERE object = %s AND file = %s
+	`, s.LinksTable, quote(object), quote(file),
+	))
+	var linked bool
+	if err := row.Scan(&linked); err != nil && err != sql.ErrNoRows {
+		return false, err
+	}
+	return linked, nil
 }
 
 // get all files linked to an object.
 func (s *Storage) FilesOf(db DB, object string) ([]string, error) {
-	return nil, nil
+	rows, err := db.Query(fmt.Sprintf(`
+	SELECT file FROM %s WHERE object = %s ORDER BY created_at
+	`, s.LinksTable, quote(object),
+	))
+	if err != nil {
+		return nil, err
+	}
+
+	var files []string
+	for rows.Next() {
+		var file string
+		if err := rows.Scan(&file); err != nil {
+			return nil, err
+		}
+		files = append(files, file)
+	}
+	return files, nil
+}
+
+func filesCond(files []string, not string) string {
+	var quoted = make([]string, len(files))
+	for i := range files {
+		quoted[i] = quote(files[i])
+	}
+	return fmt.Sprintf(" AND file %s IN (%s)", not, strings.Join(quoted, ", "))
 }
