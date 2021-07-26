@@ -1,4 +1,4 @@
-module github.com/lovego/file_storage
+module github.com/lovego/filestorage
 
 go 1.14
 
