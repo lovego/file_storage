@@ -1,5 +1,5 @@
-// Package file_storage upload/store/download files, and clean unused files.
-package file_storage
+// Package filestorage upload/store/download files, and clean unused files.
+package filestorage
 
 import (
 	"database/sql"
@@ -9,6 +9,7 @@ import (
 	"path"
 )
 
+// Storage do file storage on disk and infomation in database tables.
 type Storage struct {
 	ScpUser     string
 	ScpMachines []string
@@ -24,26 +25,29 @@ type Storage struct {
 	localMachine  bool
 	otherMachines []string
 }
+
+// DB represents *sql.DB or *sql.Tx
 type DB interface {
 	QueryRow(query string, args ...interface{}) *sql.Row
 	Query(query string, args ...interface{}) (*sql.Rows, error)
 	Exec(query string, args ...interface{}) (sql.Result, error)
 }
 
+// Init validate storage fields and create tables if not created.
 func (s *Storage) Init(db DB) error {
 	if len(s.ScpMachines) == 0 {
-		return errors.New("ScpMachines is empty.")
+		return errors.New("ScpMachines is empty")
 	}
 	if s.ScpPath == "" {
-		return errors.New("ScpPath is empty.")
+		return errors.New("ScpPath is empty")
 	}
 	if s.ScpPath[0] != '/' {
-		return errors.New("ScpPath is not an absolute path.")
+		return errors.New("ScpPath is not an absolute path")
 	}
 	if s.DirDepth == 0 {
 		s.DirDepth = 3
 	} else if s.DirDepth > 8 {
-		return errors.New("DirDepth at most be 8.")
+		return errors.New("DirDepth at most be 8")
 	}
 	if s.XAccelRedirectPrefix == "" {
 		s.XAccelRedirectPrefix = "/fs"
@@ -61,7 +65,7 @@ func (s *Storage) Init(db DB) error {
 	return s.parseMachines()
 }
 
-// upload files, if object is not empty, the files are linked to it.
+// Upload files, if object is not empty, the files are linked to it.
 func (s *Storage) Upload(
 	db DB, contentTypeCheck func(*multipart.FileHeader, string) error, object string,
 	files ...*multipart.FileHeader,
@@ -97,7 +101,8 @@ func (s *Storage) Upload(
 	return hashes, nil
 }
 
-/* download file, if object is not empty, the file must be linked to it, otherwise an error is returned.
+/*
+Download file, if object is not empty, the file must be linked to it, otherwise an error is returned.
 An location like following is required in nginx virtual server config.
 	location /fs/ {
 	  internal;

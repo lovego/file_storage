@@ -1,4 +1,4 @@
-package file_storage
+package filestorage
 
 import (
 	"database/sql"
@@ -10,6 +10,7 @@ import (
 var errEmptyObject = errors.New("object is empty")
 var errNotLinked = errors.New("the file is not linked to the object")
 
+// IsNotLinked check if an error is the not linked Error.
 func IsNotLinked(err error) bool {
 	return err == errNotLinked
 }
@@ -32,7 +33,7 @@ func (s *Storage) createLinksTable(db DB) error {
 	return err
 }
 
-// link files to object.
+// Link files to object.
 func (s *Storage) Link(db DB, object string, files ...string) error {
 	if object == "" {
 		return errEmptyObject
@@ -55,7 +56,7 @@ func (s *Storage) Link(db DB, object string, files ...string) error {
 	return err
 }
 
-// make sure files and only files are linked to object.
+// LinkOnly make sure these files and only these files are linked to object.
 func (s *Storage) LinkOnly(db DB, object string, files ...string) error {
 	if err := s.Link(db, object, files...); err != nil {
 		return err
@@ -66,7 +67,7 @@ func (s *Storage) LinkOnly(db DB, object string, files ...string) error {
 	return s.unlink(db, object, filesCond(files, "NOT"))
 }
 
-// unlink all linked files from an object.
+// UnlinkAllOf unlink all linked files from an object.
 func (s *Storage) UnlinkAllOf(db DB, object string) error {
 	if object == "" {
 		return errEmptyObject
@@ -74,7 +75,7 @@ func (s *Storage) UnlinkAllOf(db DB, object string) error {
 	return s.unlink(db, object, "")
 }
 
-// unlink files from object.
+// Unlink files from object.
 func (s *Storage) Unlink(db DB, object string, files ...string) error {
 	if object == "" {
 		return errEmptyObject
@@ -92,7 +93,7 @@ func (s *Storage) unlink(db DB, object string, conds string) error {
 	return err
 }
 
-// ensure file is linked to object.
+// EnsureLinked ensure file is linked to object.
 func (s *Storage) EnsureLinked(db DB, object, file string) error {
 	if ok, err := s.Linked(db, object, file); err != nil {
 		return err
@@ -102,7 +103,7 @@ func (s *Storage) EnsureLinked(db DB, object, file string) error {
 	return nil
 }
 
-// check if file is linked to object.
+// Linked check if file is linked to object.
 func (s *Storage) Linked(db DB, object, file string) (bool, error) {
 	row := db.QueryRow(fmt.Sprintf(`
 	SELECT true FROM %s WHERE object = %s AND file = %s
@@ -115,7 +116,7 @@ func (s *Storage) Linked(db DB, object, file string) (bool, error) {
 	return linked, nil
 }
 
-// get all files linked to an object.
+// FilesOf get all files linked to an object.
 func (s *Storage) FilesOf(db DB, object string) ([]string, error) {
 	rows, err := db.Query(fmt.Sprintf(`
 	SELECT file FROM %s WHERE object = %s ORDER BY created_at

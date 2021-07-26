@@ -1,4 +1,4 @@
-package file_storage
+package filestorage
 
 import (
 	"io"
@@ -74,6 +74,7 @@ func (s *Storage) parseMachines() error {
 	return nil
 }
 
+// FilePath returns the file path to store on disk.
 func (s *Storage) FilePath(hash string) string {
 	var path string
 	var i uint8
