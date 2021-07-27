@@ -15,7 +15,9 @@ func (s *Storage) saveFile(file multipart.File, hash string) error {
 	var srcPath string
 	var destPath = filepath.Join(s.ScpPath, s.FilePath(hash))
 	if s.localMachine {
-		s.writeFile(file, destPath)
+		if err := s.writeFile(file, destPath); err != nil {
+			return err
+		}
 		srcPath = destPath
 	} else {
 		tempFile, err := s.writeTempFile(file)
@@ -38,6 +40,9 @@ func (s *Storage) writeFile(file multipart.File, destPath string) error {
 	}
 	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
+		if os.IsExist(err) {
+			return nil
+		}
 		return err
 	}
 	defer destFile.Close()
