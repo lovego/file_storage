@@ -4,9 +4,6 @@ package filestorage
 import (
 	"database/sql"
 	"errors"
-	"mime/multipart"
-	"net/http"
-	"path"
 )
 
 // Storage do file storage on disk and infomation in database tables.
@@ -49,9 +46,7 @@ func (s *Storage) Init(db DB) error {
 	} else if s.DirDepth > 8 {
 		return errors.New("DirDepth at most be 8")
 	}
-	if s.XAccelRedirectPrefix == "" {
-		s.XAccelRedirectPrefix = "/fs"
-	} else if s.XAccelRedirectPrefix[0] != '/' {
+	if s.XAccelRedirectPrefix != "" && s.XAccelRedirectPrefix[0] != '/' {
 		s.XAccelRedirectPrefix = "/" + s.XAccelRedirectPrefix
 	}
 
@@ -63,62 +58,4 @@ func (s *Storage) Init(db DB) error {
 	}
 
 	return s.parseMachines()
-}
-
-// Upload files, if object is not empty, the files are linked to it.
-func (s *Storage) Upload(
-	db DB, contentTypeCheck func(*multipart.FileHeader, string) error, object string,
-	files ...*multipart.FileHeader,
-) ([]string, error) {
-	if len(files) == 0 {
-		return nil, nil
-	}
-	records, err := s.createFileRecords(db, files, contentTypeCheck)
-	defer func() {
-		for i := range records {
-			records[i].File.Close()
-		}
-	}()
-	if err != nil {
-		return nil, err
-	}
-	var hashes []string
-	for i := range records {
-		hashes = append(hashes, records[i].Hash)
-	}
-	if object != "" {
-		if err := s.Link(db, object, hashes...); err != nil {
-			return nil, err
-		}
-	}
-	for i := range records {
-		if records[i].New {
-			if err := s.saveFile(records[i].File, records[i].Hash); err != nil {
-				return nil, err
-			}
-		}
-	}
-	return hashes, nil
-}
-
-/*
-Download file, if object is not empty, the file must be linked to it, otherwise an error is returned.
-An location like following is required in nginx virtual server config.
-	location /fs/ {
-	  internal;
-	  alias /data/file-storage;
-	}
-The location prefix should be XAccelRedirectPrefix + "/", the alias path should be ScpPath.
-*/
-func (s *Storage) Download(
-	db DB, resp http.ResponseWriter, file string, object string,
-) error {
-	if object != "" {
-		if err := s.EnsureLinked(db, object, file); err != nil {
-			return err
-		}
-	}
-	resp.Header().Set("X-Accel-Redirect", path.Join(s.XAccelRedirectPrefix, s.FilePath(file)))
-
-	return nil
 }

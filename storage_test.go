@@ -35,25 +35,46 @@ func ExampleStorage_Upload() {
 
 }
 
+const testFile1 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF1"
+const testFile2 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF2"
+const testFile3 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3"
+const testFile4 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF4"
+
 func ExampleStorage_Link() {
 	fmt.Println(testStorage.UnlinkAllOf(testDB, "object"))
-	fmt.Println(testStorage.Link(testDB, "object", "file1", "file2", "file3"))
-	fmt.Println(testStorage.FilesOf(testDB, "object"))
+	fmt.Println(testStorage.Link(testDB, "object", testFile1, testFile2, testFile3))
+	if files, err := testStorage.FilesOf(testDB, "object"); err != nil {
+		fmt.Println(err)
+	} else {
+		for _, v := range files {
+			fmt.Println(v)
+		}
+	}
 	// Output:
 	// <nil>
 	// <nil>
-	// [file1 file2 file3] <nil>
+	// TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF1
+	// TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF2
+	// TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3
 }
 
 func ExampleStorage_LinkOnly() {
-	fmt.Println(testStorage.LinkOnly(testDB, "object", "file3", "file4"))
-	fmt.Println(testStorage.FilesOf(testDB, "object"))
-	fmt.Println(testStorage.EnsureLinked(testDB, "object", "file3"))
-	fmt.Println(testStorage.Unlink(testDB, "object", "file3", "file4"))
-	fmt.Println(testStorage.Linked(testDB, "object", "file3"))
+	fmt.Println(testStorage.LinkOnly(testDB, "object", testFile3, testFile4))
+	if files, err := testStorage.FilesOf(testDB, "object"); err != nil {
+		fmt.Println(err)
+	} else {
+		for _, v := range files {
+			fmt.Println(v)
+		}
+	}
+
+	fmt.Println(testStorage.EnsureLinked(testDB, "object", testFile3))
+	fmt.Println(testStorage.Unlink(testDB, "object", testFile3, testFile4))
+	fmt.Println(testStorage.Linked(testDB, "object", testFile3))
 	// Output:
 	// <nil>
-	// [file3 file4] <nil>
+	// TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3
+	// TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF4
 	// <nil>
 	// <nil>
 	// false <nil>

@@ -2,11 +2,8 @@ package filestorage
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"regexp"
-	"strconv"
 	"strings"
 )
 
@@ -44,6 +41,9 @@ func (s *Storage) Link(db DB, object string, files ...string) error {
 	if len(files) == 0 {
 		return nil
 	}
+	if err := CheckHash(files...); err != nil {
+		return err
+	}
 
 	var values []string
 	now := nowTime()
@@ -67,6 +67,9 @@ func (s *Storage) LinkOnly(db DB, object string, files ...string) error {
 	if len(files) == 0 {
 		return s.unlink(db, object, "")
 	}
+	if err := CheckHash(files...); err != nil {
+		return err
+	}
 	return s.unlink(db, object, filesCond(files, "NOT"))
 }
 
@@ -85,6 +88,9 @@ func (s *Storage) Unlink(db DB, object string, files ...string) error {
 	}
 	if len(files) == 0 {
 		return nil
+	}
+	if err := CheckHash(files...); err != nil {
+		return err
 	}
 	return s.unlink(db, object, filesCond(files, ""))
 }
@@ -108,6 +114,9 @@ func (s *Storage) EnsureLinked(db DB, object, file string) error {
 
 // Linked check if file is linked to object.
 func (s *Storage) Linked(db DB, object, file string) (bool, error) {
+	if err := CheckHash(file); err != nil {
+		return false, err
+	}
 	row := db.QueryRow(fmt.Sprintf(`
 	SELECT true FROM %s WHERE object = %s AND file = %s
 	`, s.LinksTable, quote(object), quote(file),
@@ -146,48 +155,4 @@ func filesCond(files []string, not string) string {
 		quoted[i] = quote(files[i])
 	}
 	return fmt.Sprintf(" AND file %s IN (%s)", not, strings.Join(quoted, ", "))
-}
-
-var objectRegexp = regexp.MustCompile(`^(\w+)\.(\d+)(\.(\w+))?$`)
-var errInvalidObject = errors.New("invalid LinkObject")
-
-// LinkObject is a structured reference implementaion for link object string.
-type LinkObject struct {
-	Table string
-	ID    int64
-	Field string
-}
-
-func (o LinkObject) String() string {
-	s := o.Table + "." + strconv.FormatInt(o.ID, 10)
-	if o.Field != "" {
-		s += "." + o.Field
-	}
-	return s
-}
-
-// MarshalJSON implements json.Marshaler
-func (o LinkObject) MarshalJSON() ([]byte, error) {
-	return json.Marshal(o.String())
-}
-
-// UnmarshalJSON implements json.Unmarshaler
-func (o *LinkObject) UnmarshalJSON(b []byte) error {
-	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
-	}
-
-	m := objectRegexp.FindStringSubmatch(s)
-	if len(m) == 0 {
-		return errInvalidObject
-	}
-	o.Table = m[1]
-	if id, err := strconv.ParseInt(m[2], 10, 64); err != nil {
-		return errInvalidObject
-	} else {
-		o.ID = id
-	}
-	o.Field = m[4]
-	return nil
 }

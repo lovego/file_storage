@@ -11,6 +11,57 @@ import (
 	"github.com/lovego/addrs"
 )
 
+// Upload files, if object is not empty, the files are linked to it.
+func (s *Storage) Upload(
+	db DB, contentTypeCheck func(string) error, object string, fileHeaders ...*multipart.FileHeader,
+) ([]string, error) {
+	var files = make([]File, len(fileHeaders))
+	for i := range fileHeaders {
+		f, err := fileHeaders[i].Open()
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		files[i].IO = f
+		files[i].Size = fileHeaders[i].Size
+	}
+	return s.Save(db, contentTypeCheck, object, files...)
+}
+
+type File struct {
+	IO   multipart.File
+	Size int64
+}
+
+func (s *Storage) Save(
+	db DB, contentTypeCheck func(string) error, object string, files ...File,
+) ([]string, error) {
+	if len(files) == 0 {
+		return nil, nil
+	}
+	records, err := s.createFileRecords(db, files, contentTypeCheck)
+	if err != nil {
+		return nil, err
+	}
+	var hashes []string
+	for i := range records {
+		hashes = append(hashes, records[i].Hash)
+	}
+	if object != "" {
+		if err := s.Link(db, object, hashes...); err != nil {
+			return nil, err
+		}
+	}
+	for i := range records {
+		if records[i].New {
+			if err := s.saveFile(records[i].File, records[i].Hash); err != nil {
+				return nil, err
+			}
+		}
+	}
+	return hashes, nil
+}
+
 func (s *Storage) saveFile(file multipart.File, hash string) error {
 	var srcPath string
 	var destPath = filepath.Join(s.ScpPath, s.FilePath(hash))

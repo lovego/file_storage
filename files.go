@@ -38,30 +38,25 @@ type fileRecord struct {
 }
 
 func (s *Storage) createFileRecords(
-	db DB, fileHeaders []*multipart.FileHeader,
-	contentTypeCheck func(*multipart.FileHeader, string) error,
+	db DB, files []File, contentTypeCheck func(string) error,
 ) ([]fileRecord, error) {
-	records := make([]fileRecord, 0, len(fileHeaders))
-	for _, header := range fileHeaders {
-		file, err := header.Open()
-		if err != nil {
-			return records, err
-		}
-		contentType, err := getContentType(file)
+	records := make([]fileRecord, 0, len(files))
+	for _, file := range files {
+		contentType, err := getContentType(file.IO)
 		if err != nil {
 			return records, err
 		}
 		if contentTypeCheck != nil {
-			if err := contentTypeCheck(header, contentType); err != nil {
+			if err := contentTypeCheck(contentType); err != nil {
 				return records, err
 			}
 		}
-		hash, err := getContentHash(file)
+		hash, err := getContentHash(file.IO)
 		if err != nil {
 			return records, err
 		}
 		records = append(records, fileRecord{
-			Hash: hash, Type: contentType, Size: header.Size, File: file,
+			Hash: hash, Type: contentType, Size: file.Size, File: file.IO,
 		})
 	}
 	if err := s.insertFileRecords(db, records); err != nil {
