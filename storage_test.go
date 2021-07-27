@@ -3,6 +3,7 @@ package filestorage
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"mime/multipart"
 	"path/filepath"
@@ -107,4 +108,22 @@ func getDB() *sql.DB {
 		panic(err)
 	}
 	return db
+}
+
+func ExampleLinkObject_MarshalJSON() {
+	object := LinkObject{Table: "x", ID: 1}
+	b, err := json.Marshal(object)
+	fmt.Println(string(b), err)
+	// Output:
+	// "x.1" <nil>
+}
+
+func ExampleLinkObject_UnmarshalJSON() {
+	object := LinkObject{}
+	err := json.Unmarshal([]byte(`"x.1.b"`), &object)
+	fmt.Printf("%#v\n", object)
+	fmt.Println(err)
+	// Output:
+	// filestorage.LinkObject{Table:"x", ID:1, Field:"b"}
+	// <nil>
 }

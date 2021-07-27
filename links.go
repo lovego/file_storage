@@ -2,6 +2,7 @@ package filestorage
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -165,9 +166,19 @@ func (o LinkObject) String() string {
 	return s
 }
 
+// MarshalJSON implements json.Marshaler
+func (o LinkObject) MarshalJSON() ([]byte, error) {
+	return json.Marshal(o.String())
+}
+
 // UnmarshalJSON implements json.Unmarshaler
 func (o *LinkObject) UnmarshalJSON(b []byte) error {
-	m := objectRegexp.FindStringSubmatch(string(b))
+	var s string
+	if err := json.Unmarshal(b, &s); err != nil {
+		return err
+	}
+
+	m := objectRegexp.FindStringSubmatch(s)
 	if len(m) == 0 {
 		return errInvalidObject
 	}
