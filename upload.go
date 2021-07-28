@@ -1,6 +1,8 @@
 package filestorage
 
 import (
+	"context"
+	"database/sql"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
@@ -28,17 +30,33 @@ func (s *Storage) Upload(
 	return s.Save(db, contentTypeCheck, object, files...)
 }
 
+// File reprents the file to store.
 type File struct {
 	IO   multipart.File
 	Size int64
 }
 
+// Save file into storage.
 func (s *Storage) Save(
 	db DB, contentTypeCheck func(string) error, object string, files ...File,
-) ([]string, error) {
+) (fileHashes []string, err error) {
 	if len(files) == 0 {
 		return nil, nil
 	}
+	err = runInTx(db, func(tx DB) error {
+		hashes, err := s.save(tx, contentTypeCheck, object, files)
+		if err != nil {
+			return err
+		}
+		fileHashes = hashes
+		return nil
+	})
+	return
+}
+
+func (s *Storage) save(
+	db DB, contentTypeCheck func(string) error, object string, files []File,
+) ([]string, error) {
 	records, err := s.createFileRecords(db, files, contentTypeCheck)
 	if err != nil {
 		return nil, err
@@ -138,4 +156,25 @@ func (s *Storage) FilePath(hash string) string {
 		path = filepath.Join(path, hash[i:i+1])
 	}
 	return filepath.Join(path, hash)
+}
+
+func runInTx(db DB, work func(DB) error) error {
+	if sqldb, ok := db.(*sql.DB); ok {
+		tx, err := sqldb.BeginTx(context.Background(), nil)
+		if err != nil {
+			return err
+		}
+		defer func() {
+			if err := recover(); err != nil {
+				_ = tx.Rollback()
+				panic(err)
+			}
+		}()
+		if err := work(tx); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+		return tx.Commit()
+	}
+	return work(db)
 }

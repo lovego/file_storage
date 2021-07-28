@@ -61,12 +61,21 @@ func (s *Storage) Link(db DB, object string, files ...string) error {
 
 // LinkOnly make sure these files and only these files are linked to object.
 func (s *Storage) LinkOnly(db DB, object string, files ...string) error {
+	if object == "" {
+		return errEmptyObject
+	}
 	if err := s.Link(db, object, files...); err != nil {
 		return err
 	}
 	if len(files) == 0 {
 		return s.unlink(db, object, "")
 	}
+	return runInTx(db, func(tx DB) error {
+		return s.linkOnly(db, object, files)
+	})
+}
+
+func (s *Storage) linkOnly(db DB, object string, files []string) error {
 	if err := CheckHash(files...); err != nil {
 		return err
 	}

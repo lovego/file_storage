@@ -1,4 +1,4 @@
-// Package filestorage upload/store/download files, and clean unused files.
+// Package filestorage upload/store/download files, and clean files that are not linked to any objects.
 package filestorage
 
 import (
@@ -13,7 +13,9 @@ type Storage struct {
 	ScpPath     string
 	DirDepth    uint8
 
-	// path prefix for "X-Accel-Redirect" Response Header.
+	// Path prefix for "X-Accel-Redirect" response header.
+	// When downloading, if this prefix is empty, file content is responded in body,
+	// instead of file path in "X-Accel-Redirect" header.
 	XAccelRedirectPrefix string
 
 	FilesTable string

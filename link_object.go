@@ -12,9 +12,9 @@ var errInvalidObject = errors.New("invalid LinkObject")
 
 // LinkObject is a structured reference implementaion for link object string.
 type LinkObject struct {
-	Table string
-	ID    int64
-	Field string
+	Table string // Table name, required.
+	ID    int64  // Primary key or unique key, required.
+	Field string // If the table has multiple file storage fields, Field is required, Otherwise Field can be omitted.
 }
 
 func (o LinkObject) String() string {
