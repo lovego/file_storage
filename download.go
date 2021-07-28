@@ -17,14 +17,28 @@ func IsHash(s string) bool {
 	return hashRegexp.MatchString(s)
 }
 
+// DownloadURL make the url for file download
+func (s *Storage) DownloadURL(o LinkObject, fileHash string) string {
+	return s.DownloadURLPrefix + fileHash + "?o=" + o.String()
+}
+
+// DownloadURL make the urls for files download
+func (s *Storage) DownloadURLs(o LinkObject, fileHashes []string) []string {
+	urls := make([]string, len(fileHashes))
+	for i, hash := range fileHashes {
+		urls[i] = s.DownloadURL(o, hash)
+	}
+	return urls
+}
+
 /*
 Download file, if object is not empty, the file must be linked to it, otherwise an error is returned.
-If XAccelRedirectPrefix is not empty, an location like following is required in nginx virtual server config.
+If RedirectPathPrefix is not empty, an location like following is required in nginx virtual server config.
 	location /fs/ {
 	  internal;
 	  alias /data/file-storage;
 	}
-The location prefix and alias path should be set according to XAccelRedirectPrefix and ScpPath.
+The location prefix and alias path should be set according to RedirectPathPrefix and ScpPath.
 */
 func (s *Storage) Download(db DB, resp http.ResponseWriter, file string, object string) error {
 	if err := CheckHash(file); err != nil {
@@ -35,8 +49,8 @@ func (s *Storage) Download(db DB, resp http.ResponseWriter, file string, object 
 			return err
 		}
 	}
-	if s.XAccelRedirectPrefix != "" {
-		resp.Header().Set("X-Accel-Redirect", path.Join(s.XAccelRedirectPrefix, s.FilePath(file)))
+	if s.RedirectPathPrefix != "" {
+		resp.Header().Set("X-Accel-Redirect", path.Join(s.RedirectPathPrefix, s.FilePath(file)))
 		return nil
 	}
 

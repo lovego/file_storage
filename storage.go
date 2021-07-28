@@ -4,6 +4,8 @@ package filestorage
 import (
 	"database/sql"
 	"errors"
+	"net/url"
+	"path"
 )
 
 // Storage do file storage on disk and infomation in database tables.
@@ -13,10 +15,13 @@ type Storage struct {
 	ScpPath     string
 	DirDepth    uint8
 
-	// Path prefix for "X-Accel-Redirect" response header.
-	// When downloading, if this prefix is empty, file content is responded in body,
-	// instead of file path in "X-Accel-Redirect" header.
-	XAccelRedirectPrefix string
+	DownloadURLPrefix string
+
+	// Path prefix for "X-Accel-Redirect" response header when downloading.
+	// If this path prefix is present, only file path is sent in the "X-Accel-Redirect" header,
+	// and nginx is responsible for file downloading for a better performance.
+	// Otherwise, file is sent directly in the response body.
+	RedirectPathPrefix string
 
 	FilesTable string
 	LinksTable string
@@ -48,8 +53,8 @@ func (s *Storage) Init(db DB) error {
 	} else if s.DirDepth > 8 {
 		return errors.New("DirDepth at most be 8")
 	}
-	if s.XAccelRedirectPrefix != "" && s.XAccelRedirectPrefix[0] != '/' {
-		s.XAccelRedirectPrefix = "/" + s.XAccelRedirectPrefix
+	if s.RedirectPathPrefix != "" && s.RedirectPathPrefix[0] != '/' {
+		s.RedirectPathPrefix = "/" + s.RedirectPathPrefix
 	}
 
 	if err := s.createFilesTable(db); err != nil {
@@ -60,4 +65,33 @@ func (s *Storage) Init(db DB) error {
 	}
 
 	return s.parseMachines()
+}
+
+// FileHash returns file hash from a url or file hash
+func FileHash(str string) (string, error) {
+	if IsHash(str) {
+		return str, nil
+	}
+	uri, err := url.Parse(str)
+	if err != nil {
+		return "", err
+	}
+	hash := path.Base(uri.Path)
+	if err := CheckHash(hash); err != nil {
+		return "", err
+	}
+	return hash, nil
+}
+
+// FileHash returns file hashes from urls or file hashes
+func FileHashes(strs []string) ([]string, error) {
+	hashes := make([]string, len(strs))
+	for i, str := range strs {
+		if hash, err := FileHash(str); err != nil {
+			return nil, err
+		} else {
+			hashes[i] = hash
+		}
+	}
+	return hashes, nil
 }
