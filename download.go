@@ -1,7 +1,9 @@
 package filestorage
 
 import (
+	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -49,6 +51,9 @@ func (s *Storage) Download(db DB, resp http.ResponseWriter, file string, object 
 			return err
 		}
 	}
+	if err := s.writeHeader(db, resp, file); err != nil {
+		return err
+	}
 	if s.RedirectPathPrefix != "" {
 		resp.Header().Set("X-Accel-Redirect", path.Join(s.RedirectPathPrefix, s.FilePath(file)))
 		return nil
@@ -62,6 +67,21 @@ func (s *Storage) Download(db DB, resp http.ResponseWriter, file string, object 
 
 	_, err = io.Copy(resp, f)
 	return err
+}
+
+func (s *Storage) writeHeader(db DB, resp http.ResponseWriter, file string) error {
+	row := db.QueryRow(
+		fmt.Sprintf(`SELECT type FROM %s WHERE hash = %s`, s.FilesTable, quote(file)),
+	)
+	var contentType string
+	if err := row.Scan(&contentType); err != nil && err != sql.ErrNoRows {
+		return err
+	}
+	if contentType != "" {
+		resp.Header().Set("Content-Type", contentType)
+		resp.Header().Set("Expires", "Thu, 31 Dec 2037 23:55:55 GMT")
+	}
+	return nil
 }
 
 var errInvalidHash = errors.New("invalid file hash")
