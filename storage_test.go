@@ -136,15 +136,25 @@ func ExampleLinkObject_MarshalJSON() {
 	b, err := json.Marshal(object)
 	fmt.Println(string(b), err)
 	// Output:
-	// "x.1" <nil>
+	// "x|1" <nil>
 }
 
 func ExampleLinkObject_UnmarshalJSON() {
 	object := LinkObject{}
-	err := json.Unmarshal([]byte(`"x.1.b"`), &object)
-	fmt.Printf("%#v\n", object)
+	err := json.Unmarshal([]byte(`"x|1|b"`), &object)
 	fmt.Println(err)
+	fmt.Printf("%#v\n", object)
 	// Output:
-	// filestorage.LinkObject{Table:"x", ID:1, Field:"b"}
 	// <nil>
+	// filestorage.LinkObject{Table:"x", ID:1, Field:"b"}
+}
+
+func ExampleLinkObject_UnmarshalJSON_2() {
+	object := LinkObject{}
+	err := object.UnmarshalJSON([]byte(`x|1|b`))
+	fmt.Println(err)
+	fmt.Printf("%#v\n", object)
+	// Output:
+	// <nil>
+	// filestorage.LinkObject{Table:"x", ID:1, Field:"b"}
 }

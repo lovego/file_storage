@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-var objectRegexp = regexp.MustCompile(`^(\w+)\.(\d+)(\.(\w+))?$`)
+var objectRegexp = regexp.MustCompile(`^(\w+)\|(\d+)(\|(\w+))?$`)
 var errInvalidObject = errors.New("invalid LinkObject")
 
 // LinkObject is a structured reference implementaion for link object string.
@@ -18,9 +18,9 @@ type LinkObject struct {
 }
 
 func (o LinkObject) String() string {
-	s := o.Table + "." + strconv.FormatInt(o.ID, 10)
+	s := o.Table + "|" + strconv.FormatInt(o.ID, 10)
 	if o.Field != "" {
-		s += "." + o.Field
+		s += "|" + o.Field
 	}
 	return s
 }
@@ -32,9 +32,16 @@ func (o LinkObject) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON implements json.Unmarshaler
 func (o *LinkObject) UnmarshalJSON(b []byte) error {
+	if len(b) == 0 {
+		return errInvalidObject
+	}
 	var s string
-	if err := json.Unmarshal(b, &s); err != nil {
-		return err
+	if b[0] == '"' {
+		if err := json.Unmarshal(b, &s); err != nil {
+			return err
+		}
+	} else {
+		s = string(b)
 	}
 
 	m := objectRegexp.FindStringSubmatch(s)
