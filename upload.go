@@ -32,7 +32,7 @@ func (s *Storage) Upload(
 
 // File reprents the file to store.
 type File struct {
-	IO   multipart.File
+	IO   io.ReadSeeker
 	Size int64
 }
 
@@ -80,7 +80,7 @@ func (s *Storage) save(
 	return hashes, nil
 }
 
-func (s *Storage) saveFile(file multipart.File, hash string) error {
+func (s *Storage) saveFile(file io.Reader, hash string) error {
 	var srcPath string
 	var destPath = filepath.Join(s.ScpPath, s.FilePath(hash))
 	if s.localMachine {
@@ -103,7 +103,7 @@ func (s *Storage) saveFile(file multipart.File, hash string) error {
 	return nil
 }
 
-func (s *Storage) writeFile(file multipart.File, destPath string) error {
+func (s *Storage) writeFile(file io.Reader, destPath string) error {
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (s *Storage) writeFile(file multipart.File, destPath string) error {
 	return err
 }
 
-func (s *Storage) writeTempFile(file multipart.File) (string, error) {
+func (s *Storage) writeTempFile(file io.Reader) (string, error) {
 	temp, err := ioutil.TempFile("", "fs_")
 	if err != nil {
 		return "", err

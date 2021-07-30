@@ -5,7 +5,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -33,7 +32,7 @@ type fileRecord struct {
 	Hash string
 	Type string
 	Size int64
-	File multipart.File
+	File io.Reader
 	New  bool
 }
 
@@ -102,7 +101,7 @@ func (s *Storage) insertFileRecords(db DB, records []fileRecord) error {
 	return err
 }
 
-func getContentType(file multipart.File) (string, error) {
+func getContentType(file io.ReadSeeker) (string, error) {
 	var array [512]byte
 	n, err := file.Read(array[:])
 	if err != nil {
@@ -114,7 +113,7 @@ func getContentType(file multipart.File) (string, error) {
 	return http.DetectContentType(array[:n]), nil
 }
 
-func getContentHash(file multipart.File) (string, error) {
+func getContentHash(file io.ReadSeeker) (string, error) {
 	h := sha256.New()
 	if _, err := io.Copy(h, file); err != nil {
 		return "", err
