@@ -7,7 +7,7 @@ import (
 	"strconv"
 )
 
-var objectRegexp = regexp.MustCompile(`^(\w+)\|(\d+)(\|(\w+))?$`)
+var objectRegexp = regexp.MustCompile(`^([\w.]+)\|(\d+)(\|(\w+))?$`)
 var errInvalidObject = errors.New("invalid LinkObject")
 
 // LinkObject is a structured reference implementaion for link object string.
