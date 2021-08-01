@@ -6,15 +6,42 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/lovego/addrs"
+	"github.com/lovego/errs"
 )
 
+func UploadImages(req *http.Request) ([]string, error) {
+	if err := req.ParseMultipartForm(10 * (1 << 20)); err != nil {
+		return nil, err
+	}
+	files := req.MultipartForm.File["file"]
+	if len(files) == 0 {
+		return nil, errs.New("args-err", "no files")
+	}
+	q := req.URL.Query()
+
+	bucket, err := GetBucket(q.Get("bucket"))
+	if err != nil {
+		return nil, err
+	}
+	return bucket.Upload(nil, imageChecker, q.Get("linkObject"), files...)
+}
+
+func imageChecker(contentType string) error {
+	if strings.HasPrefix(contentType, "image/") {
+		return nil
+	}
+	return errs.Newf("args-err", "content type %s is not an image.", contentType)
+}
+
 // Upload files, if object is not empty, the files are linked to it.
-func (s *Storage) Upload(
+func (b *Bucket) Upload(
 	db DB, contentTypeCheck func(string) error, object string, fileHeaders ...*multipart.FileHeader,
 ) ([]string, error) {
 	var files = make([]File, len(fileHeaders))
@@ -27,7 +54,7 @@ func (s *Storage) Upload(
 		files[i].IO = f
 		files[i].Size = fileHeaders[i].Size
 	}
-	return s.Save(db, contentTypeCheck, object, files...)
+	return b.Save(db, contentTypeCheck, object, files...)
 }
 
 // File reprents the file to store.
@@ -37,14 +64,14 @@ type File struct {
 }
 
 // Save file into storage.
-func (s *Storage) Save(
+func (b *Bucket) Save(
 	db DB, contentTypeCheck func(string) error, object string, files ...File,
 ) (fileHashes []string, err error) {
 	if len(files) == 0 {
 		return nil, nil
 	}
 	err = runInTx(db, func(tx DB) error {
-		hashes, err := s.save(tx, contentTypeCheck, object, files)
+		hashes, err := b.save(tx, contentTypeCheck, object, files)
 		if err != nil {
 			return err
 		}
@@ -54,10 +81,10 @@ func (s *Storage) Save(
 	return
 }
 
-func (s *Storage) save(
+func (b *Bucket) save(
 	db DB, contentTypeCheck func(string) error, object string, files []File,
 ) ([]string, error) {
-	records, err := s.createFileRecords(db, files, contentTypeCheck)
+	records, err := b.createFileRecords(db, files, contentTypeCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -66,13 +93,13 @@ func (s *Storage) save(
 		hashes = append(hashes, records[i].Hash)
 	}
 	if object != "" {
-		if err := s.Link(db, object, hashes...); err != nil {
+		if err := b.Link(db, object, hashes...); err != nil {
 			return nil, err
 		}
 	}
 	for i := range records {
 		if records[i].New {
-			if err := s.saveFile(records[i].File, records[i].Hash); err != nil {
+			if err := b.saveFile(records[i].File, records[i].Hash); err != nil {
 				return nil, err
 			}
 		}
@@ -80,22 +107,22 @@ func (s *Storage) save(
 	return hashes, nil
 }
 
-func (s *Storage) saveFile(file io.Reader, hash string) error {
+func (b *Bucket) saveFile(file io.Reader, hash string) error {
 	var srcPath string
-	var destPath = filepath.Join(s.ScpPath, s.FilePath(hash))
-	if s.localMachine {
-		if err := s.writeFile(file, destPath); err != nil {
+	var destPath = filepath.Join(b.Dir, b.FilePath(hash))
+	if b.localMachine {
+		if err := b.writeFile(file, destPath); err != nil {
 			return err
 		}
 		srcPath = destPath
 	} else {
-		tempFile, err := s.writeTempFile(file)
+		tempFile, err := b.writeTempFile(file)
 		if err != nil {
 			return err
 		}
 		srcPath = tempFile
 	}
-	for _, addr := range s.otherMachines {
+	for _, addr := range b.otherMachines {
 		if err := exec.Command("scp", srcPath, addr+":"+destPath).Run(); err != nil {
 			return err
 		}
@@ -103,7 +130,7 @@ func (s *Storage) saveFile(file io.Reader, hash string) error {
 	return nil
 }
 
-func (s *Storage) writeFile(file io.Reader, destPath string) error {
+func (b *Bucket) writeFile(file io.Reader, destPath string) error {
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return err
 	}
@@ -119,7 +146,7 @@ func (s *Storage) writeFile(file io.Reader, destPath string) error {
 	return err
 }
 
-func (s *Storage) writeTempFile(file io.Reader) (string, error) {
+func (b *Bucket) writeTempFile(file io.Reader) (string, error) {
 	temp, err := ioutil.TempFile("", "fs_")
 	if err != nil {
 		return "", err
@@ -131,28 +158,28 @@ func (s *Storage) writeTempFile(file io.Reader) (string, error) {
 	return temp.Name(), nil
 }
 
-func (s *Storage) parseMachines() error {
+func (b *Bucket) parseMachines() error {
 	var user string
-	if s.ScpUser != "" {
-		user = s.ScpUser + "@"
+	if b.ScpUser != "" {
+		user = b.ScpUser + "@"
 	}
-	for _, addr := range s.ScpMachines {
+	for _, addr := range b.Machines {
 		if ok, err := addrs.IsLocalhost(addr); err != nil {
 			return err
 		} else if ok {
-			s.localMachine = true
+			b.localMachine = true
 		} else {
-			s.otherMachines = append(s.otherMachines, user+addr)
+			b.otherMachines = append(b.otherMachines, user+addr)
 		}
 	}
 	return nil
 }
 
 // FilePath returns the file path to store on disk.
-func (s *Storage) FilePath(hash string) string {
+func (b *Bucket) FilePath(hash string) string {
 	var path string
 	var i uint8
-	for ; i < s.DirDepth; i++ {
+	for ; i < b.DirDepth; i++ {
 		path = filepath.Join(path, hash[i:i+1])
 	}
 	return filepath.Join(path, hash)

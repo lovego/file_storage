@@ -6,31 +6,39 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
 )
 
-var hashRegexp = regexp.MustCompile(`^[\w-]{43}$`)
-
-// IsHash returns if string s is in file hash format(43 urlsafe base64 characters).
-func IsHash(s string) bool {
-	return hashRegexp.MatchString(s)
-}
-
 // DownloadURL make the url for file download
-func (s *Storage) DownloadURL(o LinkObject, fileHash string) string {
-	return s.DownloadURLPrefix + fileHash + "?o=" + o.String()
+func (b *Bucket) DownloadURL(o LinkObject, fileHash string) string {
+	q := url.Values{}
+	q.Set("b", b.Name)     // bucket
+	q.Set("f", fileHash)   // file
+	q.Set("o", o.String()) // link object
+	return b.DownloadURLPrefix + "?" + q.Encode()
 }
 
 // DownloadURL make the urls for files download
-func (s *Storage) DownloadURLs(o LinkObject, fileHashes []string) []string {
+func (b *Bucket) DownloadURLs(o LinkObject, fileHashes []string) []string {
 	urls := make([]string, len(fileHashes))
 	for i, hash := range fileHashes {
-		urls[i] = s.DownloadURL(o, hash)
+		urls[i] = b.DownloadURL(o, hash)
 	}
 	return urls
+}
+
+// Download file according to the requested bucket, file, link object
+func Download(req *http.Request, resp http.ResponseWriter) error {
+	q := req.URL.Query()
+	bucket, err := GetBucket(q.Get("b"))
+	if err != nil {
+		return err
+	}
+	return bucket.Download(nil, resp, q.Get("f"), q.Get("o"))
 }
 
 /*
@@ -40,26 +48,26 @@ If RedirectPathPrefix is not empty, an location like following is required in ng
 	  internal;
 	  alias /data/file-storage;
 	}
-The location prefix and alias path should be set according to RedirectPathPrefix and ScpPath.
+The location prefix and alias path should be set according to RedirectPathPrefix and Dir.
 */
-func (s *Storage) Download(db DB, resp http.ResponseWriter, file string, object string) error {
+func (b *Bucket) Download(db DB, resp http.ResponseWriter, file string, object string) error {
 	if err := CheckHash(file); err != nil {
 		return err
 	}
 	if object != "" {
-		if err := s.EnsureLinked(db, object, file); err != nil {
+		if err := b.EnsureLinked(b.DB, object, file); err != nil {
 			return err
 		}
 	}
-	if err := s.writeHeader(db, resp, file); err != nil {
+	if err := b.writeHeader(b.DB, resp, file); err != nil {
 		return err
 	}
-	if s.RedirectPathPrefix != "" {
-		resp.Header().Set("X-Accel-Redirect", path.Join(s.RedirectPathPrefix, s.FilePath(file)))
+	if b.RedirectPathPrefix != "" {
+		resp.Header().Set("X-Accel-Redirect", path.Join(b.RedirectPathPrefix, b.FilePath(file)))
 		return nil
 	}
 
-	f, err := os.Open(filepath.Join(s.ScpPath, s.FilePath(file)))
+	f, err := os.Open(filepath.Join(b.Dir, b.FilePath(file)))
 	if err != nil {
 		return err
 	}
@@ -69,9 +77,9 @@ func (s *Storage) Download(db DB, resp http.ResponseWriter, file string, object 
 	return err
 }
 
-func (s *Storage) writeHeader(db DB, resp http.ResponseWriter, file string) error {
+func (b *Bucket) writeHeader(db DB, resp http.ResponseWriter, file string) error {
 	row := db.QueryRow(
-		fmt.Sprintf(`SELECT type FROM %s WHERE hash = %s`, s.FilesTable, quote(file)),
+		fmt.Sprintf(`SELECT type FROM %s WHERE hash = %s`, b.FilesTable, quote(file)),
 	)
 	var contentType string
 	if err := row.Scan(&contentType); err != nil && err != sql.ErrNoRows {
@@ -94,4 +102,11 @@ func CheckHash(hashes ...string) error {
 		}
 	}
 	return nil
+}
+
+var hashRegexp = regexp.MustCompile(`^[\w-]{43}$`)
+
+// IsHash returns if string s is in file hash format(43 urlsafe base64 characters).
+func IsHash(s string) bool {
+	return hashRegexp.MatchString(s)
 }

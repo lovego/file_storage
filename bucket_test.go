@@ -13,15 +13,15 @@ import (
 )
 
 var testDB = getDB()
-var testStorage = getStorage()
+var testBucket = getBucket()
 var testFileHeaders = getFileHeaders()
 
-func ExampleStorage_Upload() {
+func ExampleBucket_Upload() {
 	db, err := testDB.BeginTx(context.Background(), nil)
 	if err != nil {
 		panic(err)
 	}
-	if files, err := testStorage.Upload(db, nil, "", testFileHeaders...); err != nil {
+	if files, err := testBucket.Upload(db, nil, "", testFileHeaders...); err != nil {
 		panic(err)
 	} else {
 		fmt.Println(files)
@@ -40,10 +40,10 @@ const testFile2 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF2"
 const testFile3 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3"
 const testFile4 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF4"
 
-func ExampleStorage_Link() {
-	fmt.Println(testStorage.UnlinkAllOf(testDB, "object"))
-	fmt.Println(testStorage.Link(testDB, "object", testFile1, testFile2, testFile3))
-	if files, err := testStorage.FilesOf(testDB, "object"); err != nil {
+func ExampleBucket_Link() {
+	fmt.Println(testBucket.UnlinkAllOf(nil, "object"))
+	fmt.Println(testBucket.Link(nil, "object", testFile1, testFile2, testFile3))
+	if files, err := testBucket.FilesOf(nil, "object"); err != nil {
 		fmt.Println(err)
 	} else {
 		for _, v := range files {
@@ -58,9 +58,9 @@ func ExampleStorage_Link() {
 	// TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3
 }
 
-func ExampleStorage_LinkOnly() {
-	fmt.Println(testStorage.LinkOnly(testDB, "object", testFile3, testFile4))
-	if files, err := testStorage.FilesOf(testDB, "object"); err != nil {
+func ExampleBucket_LinkOnly() {
+	fmt.Println(testBucket.LinkOnly(nil, "object", testFile3, testFile4))
+	if files, err := testBucket.FilesOf(nil, "object"); err != nil {
 		fmt.Println(err)
 	} else {
 		for _, v := range files {
@@ -68,9 +68,9 @@ func ExampleStorage_LinkOnly() {
 		}
 	}
 
-	fmt.Println(testStorage.EnsureLinked(testDB, "object", testFile3))
-	fmt.Println(testStorage.Unlink(testDB, "object", testFile3, testFile4))
-	fmt.Println(testStorage.Linked(testDB, "object", testFile3))
+	fmt.Println(testBucket.EnsureLinked(nil, "object", testFile3))
+	fmt.Println(testBucket.Unlink(nil, "object", testFile3, testFile4))
+	fmt.Println(testBucket.Linked(nil, "object", testFile3))
 	// Output:
 	// <nil>
 	// TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3
@@ -102,19 +102,20 @@ Content-Transfer-Encoding: binary
 	return form.File["file"]
 }
 
-func getStorage() *Storage {
+func getBucket() *Bucket {
 	tmpDir, err := filepath.Abs("tmp")
 	if err != nil {
 		panic(err)
 	}
-	s := Storage{
-		ScpMachines: []string{"localhost"},
-		ScpPath:     tmpDir,
+	b := Bucket{
+		Machines: []string{"localhost"},
+		Dir:      tmpDir,
+		DB:       testDB,
 	}
-	if err := s.Init(testDB); err != nil {
+	if err := b.Init(nil); err != nil {
 		panic(err)
 	}
-	return &s
+	return &b
 }
 
 func getDB() *sql.DB {

@@ -12,18 +12,18 @@ import (
 	"github.com/lovego/slice"
 )
 
-func (s *Storage) createFilesTable(db DB) error {
-	if s.FilesTable == "" {
-		s.FilesTable = "files"
+func (b *Bucket) createFilesTable(db DB) error {
+	if b.FilesTable == "" {
+		b.FilesTable = "files"
 	}
-	_, err := db.Exec(fmt.Sprintf(`
+	_, err := b.getDB(db).Exec(fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s (
 		hash           text        NOT NULL UNIQUE,
 		type           text        NOT NULL,
 		size           int8        NOT NULL,
 		tranformations jsonb       NOT NULL DEFAULT '{}',
 		created_at     timestamptz NOT NULL
-	)`, s.FilesTable,
+	)`, b.FilesTable,
 	))
 	return err
 }
@@ -36,7 +36,7 @@ type fileRecord struct {
 	New  bool
 }
 
-func (s *Storage) createFileRecords(
+func (b *Bucket) createFileRecords(
 	db DB, files []File, contentTypeCheck func(string) error,
 ) ([]fileRecord, error) {
 	records := make([]fileRecord, 0, len(files))
@@ -58,13 +58,13 @@ func (s *Storage) createFileRecords(
 			Hash: hash, Type: contentType, Size: file.Size, File: file.IO,
 		})
 	}
-	if err := s.insertFileRecords(db, records); err != nil {
+	if err := b.insertFileRecords(db, records); err != nil {
 		return records, err
 	}
 	return records, nil
 }
 
-func (s *Storage) insertFileRecords(db DB, records []fileRecord) error {
+func (b *Bucket) insertFileRecords(db DB, records []fileRecord) error {
 	var values []string
 	now := nowTime()
 	for _, record := range records {
@@ -73,14 +73,14 @@ func (s *Storage) insertFileRecords(db DB, records []fileRecord) error {
 		))
 	}
 
-	rows, err := db.Query(fmt.Sprintf(`
+	rows, err := b.getDB(db).Query(fmt.Sprintf(`
 	INSERT INTO %s
 		(hash, type, size, created_at)
 	VALUES
 		%s
 	ON CONFLICT (hash) DO NOTHING
 	RETURNING hash
-	`, s.FilesTable, strings.Join(values, ",\n\t\t"),
+	`, b.FilesTable, strings.Join(values, ",\n\t\t"),
 	))
 	if err != nil {
 		return err

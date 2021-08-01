@@ -5,15 +5,19 @@ import (
 	"database/sql"
 	"errors"
 	"net/url"
-	"path"
+
+	"github.com/lovego/errs"
 )
 
-// Storage do file storage on disk and infomation in database tables.
-type Storage struct {
-	ScpUser     string
-	ScpMachines []string
-	ScpPath     string
-	DirDepth    uint8
+var buckets = make(map[string]*Bucket)
+
+// Bucket store file on disk and infomation in database tables.
+type Bucket struct {
+	Name     string
+	Machines []string
+	Dir      string
+	DirDepth uint8
+	ScpUser  string
 
 	DownloadURLPrefix string
 
@@ -23,6 +27,7 @@ type Storage struct {
 	// Otherwise, file is sent directly in the response body.
 	RedirectPathPrefix string
 
+	DB         DB
 	FilesTable string
 	LinksTable string
 
@@ -38,33 +43,51 @@ type DB interface {
 }
 
 // Init validate storage fields and create tables if not created.
-func (s *Storage) Init(db DB) error {
-	if len(s.ScpMachines) == 0 {
-		return errors.New("ScpMachines is empty")
+func (b *Bucket) Init(db DB) error {
+	if len(b.Machines) == 0 {
+		return errors.New("Machines is empty")
 	}
-	if s.ScpPath == "" {
-		return errors.New("ScpPath is empty")
+	if b.Dir == "" {
+		return errors.New("Dir is empty")
 	}
-	if s.ScpPath[0] != '/' {
-		return errors.New("ScpPath is not an absolute path")
+	if b.Dir[0] != '/' {
+		return errors.New("Dir is not an absolute path")
 	}
-	if s.DirDepth == 0 {
-		s.DirDepth = 3
-	} else if s.DirDepth > 8 {
+	if b.DirDepth == 0 {
+		b.DirDepth = 3
+	} else if b.DirDepth > 8 {
 		return errors.New("DirDepth at most be 8")
 	}
-	if s.RedirectPathPrefix != "" && s.RedirectPathPrefix[0] != '/' {
-		s.RedirectPathPrefix = "/" + s.RedirectPathPrefix
+	if b.RedirectPathPrefix != "" && b.RedirectPathPrefix[0] != '/' {
+		b.RedirectPathPrefix = "/" + b.RedirectPathPrefix
 	}
-
-	if err := s.createFilesTable(db); err != nil {
+	if err := b.createFilesTable(db); err != nil {
 		return err
 	}
-	if err := s.createLinksTable(db); err != nil {
+	if err := b.createLinksTable(db); err != nil {
 		return err
 	}
+	if err := b.parseMachines(); err != nil {
+		return err
+	}
+	buckets[b.Name] = b
+	return nil
+}
 
-	return s.parseMachines()
+func (b *Bucket) getDB(db DB) DB {
+	if db != nil {
+		return db
+	}
+	return b.DB
+}
+
+var errUnknownBucket = errs.New("args-err", "unknown bucket")
+
+func GetBucket(bucketName string) (*Bucket, error) {
+	if bucket := buckets[bucketName]; bucket != nil {
+		return bucket, nil
+	}
+	return nil, errUnknownBucket
 }
 
 // FileHash returns file hash from a url or file hash
@@ -76,7 +99,7 @@ func FileHash(str string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	hash := path.Base(uri.Path)
+	hash := uri.Query().Get("f")
 	if err := CheckHash(hash); err != nil {
 		return "", err
 	}
