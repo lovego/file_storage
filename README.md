@@ -9,5 +9,6 @@
 ## Features
 - Sync files to multiple machines using scp command.
 - Download files using Nginx "X-Accel-Redirect" or sent file directly in response body.
+- Clean files that are not linked to any object.
 
 

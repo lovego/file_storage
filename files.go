@@ -66,7 +66,7 @@ func (b *Bucket) createFileRecords(
 
 func (b *Bucket) insertFileRecords(db DB, records []fileRecord) error {
 	var values []string
-	now := nowTime()
+	now := fmtTime(time.Now())
 	for _, record := range records {
 		values = append(values, fmt.Sprintf("(%s, %s, %d, %s)",
 			quote(record.Hash), quote(record.Type), record.Size, now,
@@ -86,6 +86,7 @@ func (b *Bucket) insertFileRecords(db DB, records []fileRecord) error {
 		return err
 	}
 	defer rows.Close()
+
 	var inserted []string
 	for rows.Next() {
 		var hash string
@@ -124,8 +125,8 @@ func getContentHash(file io.ReadSeeker) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(h.Sum(nil)), nil
 }
 
-func nowTime() string {
-	return time.Now().Format("'2006-01-02T15:04:05.999999Z07:00'")
+func fmtTime(t time.Time) string {
+	return t.Format("'2006-01-02T15:04:05.999999Z07:00'")
 }
 
 func quote(s string) string {

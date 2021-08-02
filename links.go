@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/lovego/errs"
 )
@@ -47,7 +48,7 @@ func (b *Bucket) Link(db DB, object string, files ...string) error {
 	}
 
 	var values []string
-	now := nowTime()
+	now := fmtTime(time.Now())
 	for _, file := range files {
 		values = append(values, fmt.Sprintf("(%s, %s, %s)", quote(file), quote(object), now))
 	}
@@ -143,6 +144,7 @@ func (b *Bucket) FilesOf(db DB, object string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	var files []string
 	for rows.Next() {

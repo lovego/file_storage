@@ -2,7 +2,6 @@ package filestorage
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,6 +10,8 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+
+	"github.com/lovego/errs"
 )
 
 // DownloadURL make the url for file download
@@ -95,7 +96,7 @@ func (b *Bucket) writeHeader(db DB, resp http.ResponseWriter, file string) error
 	return nil
 }
 
-var errInvalidHash = errors.New("invalid file hash")
+var errInvalidHash = errs.New("args-err", "invalid file hash")
 
 // CheckHash checks if hashes is in file hash format(43 urlsafe base64 characters).
 func CheckHash(hashes ...string) error {

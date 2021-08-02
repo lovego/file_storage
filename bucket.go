@@ -92,6 +92,9 @@ func GetBucket(bucketName string) (*Bucket, error) {
 
 // FileHash returns file hash from a url or file hash
 func FileHash(str string) (string, error) {
+	if str == "" {
+		return "", nil
+	}
 	if IsHash(str) {
 		return str, nil
 	}
@@ -106,7 +109,7 @@ func FileHash(str string) (string, error) {
 	return hash, nil
 }
 
-// FileHash returns file hashes from urls or file hashes
+// FileHashes returns file hashes from urls or file hashes
 func FileHashes(strs []string) ([]string, error) {
 	hashes := make([]string, len(strs))
 	for i, str := range strs {

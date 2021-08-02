@@ -2,13 +2,14 @@ package filestorage
 
 import (
 	"encoding/json"
-	"errors"
 	"regexp"
 	"strconv"
+
+	"github.com/lovego/errs"
 )
 
 var objectRegexp = regexp.MustCompile(`^([\w.]+)\|(\d+)(\|(\w+))?$`)
-var errInvalidObject = errors.New("invalid LinkObject")
+var errInvalidObject = errs.New("args-err", "invalid LinkObject")
 
 // LinkObject is a structured reference implementaion for link object string.
 type LinkObject struct {
