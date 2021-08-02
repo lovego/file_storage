@@ -39,7 +39,7 @@ func (b *Bucket) Link(db DB, object string, files ...string) error {
 	if object == "" {
 		return errEmptyObject
 	}
-	if len(files) == 0 {
+	if emptyFiles(files) {
 		return nil
 	}
 	if err := CheckHash(files...); err != nil {
@@ -65,22 +65,18 @@ func (b *Bucket) LinkOnly(db DB, object string, files ...string) error {
 	if object == "" {
 		return errEmptyObject
 	}
-	if err := b.Link(db, object, files...); err != nil {
-		return err
-	}
-	if len(files) == 0 {
+	if emptyFiles(files) {
 		return b.unlink(db, object, "")
 	}
 	return runInTx(db, func(tx DB) error {
-		return b.linkOnly(db, object, files)
+		if err := b.Link(db, object, files...); err != nil {
+			return err
+		}
+		if err := CheckHash(files...); err != nil {
+			return err
+		}
+		return b.unlink(db, object, filesCond(files, "NOT"))
 	})
-}
-
-func (b *Bucket) linkOnly(db DB, object string, files []string) error {
-	if err := CheckHash(files...); err != nil {
-		return err
-	}
-	return b.unlink(db, object, filesCond(files, "NOT"))
 }
 
 // UnlinkAllOf unlink all linked files from an object.
@@ -96,7 +92,7 @@ func (b *Bucket) Unlink(db DB, object string, files ...string) error {
 	if object == "" {
 		return errEmptyObject
 	}
-	if len(files) == 0 {
+	if emptyFiles(files) {
 		return nil
 	}
 	if err := CheckHash(files...); err != nil {
@@ -165,4 +161,8 @@ func filesCond(files []string, not string) string {
 		quoted[i] = quote(files[i])
 	}
 	return fmt.Sprintf(" AND file %s IN (%s)", not, strings.Join(quoted, ", "))
+}
+
+func emptyFiles(files []string) bool {
+	return len(files) == 0 || len(files) == 1 && files[0] == ""
 }
