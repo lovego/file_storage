@@ -46,6 +46,11 @@ const testFile3 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3"
 const testFile4 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF4"
 
 func ExampleBucket_Link() {
+	testBucket.insertFileRecords(nil, []fileRecord{
+		{Hash: "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF1"},
+		{Hash: "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF2"},
+		{Hash: "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3"},
+	})
 	fmt.Println(testBucket.UnlinkAllOf(nil, "object"))
 	fmt.Println(testBucket.Link(nil, "object", testFile1, testFile2, testFile3))
 	if files, err := testBucket.FilesOf(nil, "object"); err != nil {
@@ -64,6 +69,10 @@ func ExampleBucket_Link() {
 }
 
 func ExampleBucket_LinkOnly() {
+	testBucket.insertFileRecords(nil, []fileRecord{
+		{Hash: "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3"},
+		{Hash: "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF4"},
+	})
 	fmt.Println(testBucket.LinkOnly(nil, "object", testFile3, testFile4))
 	if files, err := testBucket.FilesOf(nil, "object"); err != nil {
 		fmt.Println(err)

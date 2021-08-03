@@ -46,6 +46,9 @@ func (b *Bucket) Link(db DB, object string, files ...string) error {
 	if err := CheckHash(files...); err != nil {
 		return err
 	}
+	if err := b.CheckFile(db, files...); err != nil {
+		return err
+	}
 
 	var values []string
 	now := fmtTime(time.Now())
@@ -71,9 +74,6 @@ func (b *Bucket) LinkOnly(db DB, object string, files ...string) error {
 	}
 	return runInTx(db, func(tx DB) error {
 		if err := b.Link(db, object, files...); err != nil {
-			return err
-		}
-		if err := CheckHash(files...); err != nil {
 			return err
 		}
 		return b.unlink(db, object, filesCond(files, "NOT"))
@@ -137,10 +137,37 @@ func (b *Bucket) Linked(db DB, object, file string) (bool, error) {
 
 // FilesOf get all files linked to an object.
 func (b *Bucket) FilesOf(db DB, object string) ([]string, error) {
-	rows, err := b.getDB(db).Query(fmt.Sprintf(`
+	sql := fmt.Sprintf(`
 	SELECT file FROM %s WHERE object = %s ORDER BY created_at
 	`, b.LinksTable, quote(object),
-	))
+	)
+	return b.queryFiles(db, sql)
+}
+
+// CheckFile ensure all files exists.
+func (b *Bucket) CheckFile(db DB, files ...string) error {
+	var values []string
+	for _, file := range files {
+		values = append(values, "('"+file+"')")
+	}
+
+	sql := fmt.Sprintf(`
+    SELECT t.hash FROM (VALUES %s) AS t(hash)
+	WHERE NOT EXISTS (
+	  SELECT 1 FROM %s WHERE hash = t.hash
+	)`, strings.Join(values, ","), b.FilesTable)
+	files, err := b.queryFiles(db, sql)
+	if err != nil {
+		return err
+	}
+	if len(files) > 0 {
+		return errs.Newf("args-err", "file: %s not exists", strings.Join(files, ", "))
+	}
+	return nil
+}
+
+func (b *Bucket) queryFiles(db DB, sql string) ([]string, error) {
+	rows, err := b.getDB(db).Query(sql)
 	if err != nil {
 		return nil, err
 	}

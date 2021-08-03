@@ -97,6 +97,9 @@ func (b *Bucket) cleanFile(file string) error {
 func emptyDir(name string) (bool, error) {
 	f, err := os.Open(name)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
 		return false, err
 	}
 	defer f.Close()
