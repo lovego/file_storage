@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/url"
+	"path/filepath"
 
 	"github.com/lovego/errs"
 )
@@ -49,6 +50,8 @@ func (b *Bucket) Init(db DB) error {
 	}
 	if b.Dir == "" {
 		return errors.New("Dir is empty")
+	} else {
+		b.Dir = filepath.Clean(b.Dir)
 	}
 	if b.Dir[0] != '/' {
 		return errors.New("Dir is not an absolute path")

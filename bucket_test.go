@@ -6,33 +6,38 @@ import (
 	"encoding/json"
 	"fmt"
 	"mime/multipart"
+	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	_ "github.com/lib/pq"
+	"github.com/lovego/logger"
 )
 
-var testDB = getDB()
-var testBucket = getBucket()
-var testFileHeaders = getFileHeaders()
+var testDB = getTestDB()
+var testBucket = getTestBucket()
+var testFileHeaders = getTestFileHeaders()
 
 func ExampleBucket_Upload() {
+	fmt.Println(testUpload())
+	// Output:
+	// [TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF0 HEbi8PV2cRPf8QeB8lesh6gWPAmiAda7xGarbjAv8v4]
+}
+
+func testUpload() []string {
 	db, err := testDB.BeginTx(context.Background(), nil)
 	if err != nil {
 		panic(err)
 	}
-	if files, err := testBucket.Upload(db, nil, "", testFileHeaders...); err != nil {
+	files, err := testBucket.Upload(db, nil, "", testFileHeaders...)
+	if err != nil {
 		panic(err)
-	} else {
-		fmt.Println(files)
 	}
 	if err := db.Commit(); err != nil {
 		panic(err)
 	}
-
-	// Output:
-	// [TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF0 HEbi8PV2cRPf8QeB8lesh6gWPAmiAda7xGarbjAv8v4]
-
+	return files
 }
 
 const testFile1 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF1"
@@ -80,7 +85,14 @@ func ExampleBucket_LinkOnly() {
 	// false <nil>
 }
 
-func getFileHeaders() []*multipart.FileHeader {
+func ExampleBucket_StartClean() {
+	testUpload()
+	testBucket.StartClean(time.Second, time.Nanosecond, logger.New(os.Stdout))
+	time.Sleep(time.Second)
+	// Output:
+}
+
+func getTestFileHeaders() []*multipart.FileHeader {
 	form, err := multipart.NewReader(strings.NewReader(`
 --ZnGpDtePMx0KrHh_G0X99Yef9r8JZsRJSXC
 Content-Disposition: form-data;name="file"; filename="1.jpg"
@@ -102,7 +114,7 @@ Content-Transfer-Encoding: binary
 	return form.File["file"]
 }
 
-func getBucket() *Bucket {
+func getTestBucket() *Bucket {
 	tmpDir, err := filepath.Abs("tmp")
 	if err != nil {
 		panic(err)
@@ -118,7 +130,7 @@ func getBucket() *Bucket {
 	return &b
 }
 
-func getDB() *sql.DB {
+func getTestDB() *sql.DB {
 	db, err := sql.Open("postgres", "postgres://postgres:postgres@localhost/postgres?sslmode=disable")
 	if err != nil {
 		panic(err)
