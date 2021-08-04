@@ -10,11 +10,16 @@ import (
 )
 
 var errEmptyObject = errs.New("args-err", "object is empty")
+var errFileNotExists = errs.Newf("args-err", "some file not exists")
 var errNotLinked = errs.New("args-err", "the file is not linked to the object")
 
 // IsNotLinked check if an error is the not linked Error.
 func IsNotLinked(err error) bool {
 	return err == errNotLinked
+}
+
+func IsFileNotExists(err error) bool {
+	return err == errFileNotExists
 }
 
 func (b *Bucket) createLinksTable(db DB) error {
@@ -161,7 +166,7 @@ func (b *Bucket) CheckFile(db DB, files ...string) error {
 		return err
 	}
 	if len(files) > 0 {
-		return errs.Newf("args-err", "file: %s not exists", strings.Join(files, ", "))
+		return errFileNotExists
 	}
 	return nil
 }
