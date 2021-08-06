@@ -180,3 +180,18 @@ func ExampleLinkObject_UnmarshalJSON_2() {
 	// <nil>
 	// filestorage.LinkObject{Table:"a.x", ID:1, Field:"b"}
 }
+
+func ExampleGetContentHash() {
+	if os.Getenv("file") == "" {
+		return
+	}
+	f, err := os.Open(os.Getenv("file"))
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer f.Close()
+
+	fmt.Println(getContentHash(f))
+
+	// Output:
+}
