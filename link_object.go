@@ -19,6 +19,9 @@ type LinkObject struct {
 }
 
 func (o LinkObject) String() string {
+	if o.Table == "" && o.ID == 0 && o.Field == "" {
+		return ""
+	}
 	s := o.Table + "|" + strconv.FormatInt(o.ID, 10)
 	if o.Field != "" {
 		s += "|" + o.Field
@@ -43,6 +46,9 @@ func (o *LinkObject) UnmarshalJSON(b []byte) error {
 		}
 	} else {
 		s = string(b)
+	}
+	if s == "" {
+		return nil
 	}
 
 	m := objectRegexp.FindStringSubmatch(s)

@@ -59,11 +59,11 @@ func (b *Bucket) Download(db DB, resp http.ResponseWriter, file string, object s
 		return err
 	}
 	if object != "" {
-		if err := b.EnsureLinked(b.DB, object, file); err != nil {
+		if err := b.EnsureLinked(db, object, file); err != nil {
 			return err
 		}
 	}
-	if err := b.writeHeader(b.DB, resp, file); err != nil {
+	if err := b.writeHeader(db, resp, file); err != nil {
 		return err
 	}
 	if b.RedirectPathPrefix != "" {
