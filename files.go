@@ -37,7 +37,7 @@ type fileRecord struct {
 }
 
 func (b *Bucket) createFileRecords(
-	db DB, files []File, contentTypeCheck func(string) error,
+	db DB, files []File, fileCheck func(string, int64) error,
 ) ([]fileRecord, error) {
 	records := make([]fileRecord, 0, len(files))
 	for _, file := range files {
@@ -45,8 +45,8 @@ func (b *Bucket) createFileRecords(
 		if err != nil {
 			return records, err
 		}
-		if contentTypeCheck != nil {
-			if err := contentTypeCheck(contentType); err != nil {
+		if fileCheck != nil {
+			if err := fileCheck(contentType, file.Size); err != nil {
 				return records, err
 			}
 		}

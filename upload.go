@@ -14,9 +14,11 @@ import (
 
 	"github.com/lovego/addrs"
 	"github.com/lovego/errs"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
-func UploadImages(req *http.Request) ([]string, error) {
+func UploadImages(req *http.Request, lang string) ([]string, error) {
 	if err := req.ParseMultipartForm(10 * (1 << 20)); err != nil {
 		return nil, err
 	}
@@ -30,19 +32,12 @@ func UploadImages(req *http.Request) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bucket.Upload(nil, imageChecker, q.Get("linkObject"), files...)
-}
-
-func imageChecker(contentType string) error {
-	if strings.HasPrefix(contentType, "image/") {
-		return nil
-	}
-	return errs.Newf("args-err", "content type %s is not an image.", contentType)
+	return bucket.Upload(nil, imageChecker{lang}.Check, q.Get("linkObject"), files...)
 }
 
 // Upload files, if object is not empty, the files are linked to it.
 func (b *Bucket) Upload(
-	db DB, contentTypeCheck func(string) error, object string, fileHeaders ...*multipart.FileHeader,
+	db DB, fileCheck func(string, int64) error, object string, fileHeaders ...*multipart.FileHeader,
 ) ([]string, error) {
 	var files = make([]File, len(fileHeaders))
 	for i := range fileHeaders {
@@ -54,7 +49,7 @@ func (b *Bucket) Upload(
 		files[i].IO = f
 		files[i].Size = fileHeaders[i].Size
 	}
-	return b.Save(db, contentTypeCheck, object, files...)
+	return b.Save(db, fileCheck, object, files...)
 }
 
 // File reprents the file to store.
@@ -65,13 +60,13 @@ type File struct {
 
 // Save file into storage.
 func (b *Bucket) Save(
-	db DB, contentTypeCheck func(string) error, object string, files ...File,
+	db DB, fileCheck func(string, int64) error, object string, files ...File,
 ) (fileHashes []string, err error) {
 	if len(files) == 0 {
 		return nil, nil
 	}
 	err = runInTx(db, func(tx DB) error {
-		hashes, err := b.save(tx, contentTypeCheck, object, files)
+		hashes, err := b.save(tx, fileCheck, object, files)
 		if err != nil {
 			return err
 		}
@@ -82,9 +77,9 @@ func (b *Bucket) Save(
 }
 
 func (b *Bucket) save(
-	db DB, contentTypeCheck func(string) error, object string, files []File,
+	db DB, fileCheck func(string, int64) error, object string, files []File,
 ) ([]string, error) {
-	records, err := b.createFileRecords(db, files, contentTypeCheck)
+	records, err := b.createFileRecords(db, files, fileCheck)
 	if err != nil {
 		return nil, err
 	}
@@ -204,4 +199,40 @@ func runInTx(db DB, work func(DB) error) error {
 		return tx.Commit()
 	}
 	return work(db)
+}
+
+type imageChecker struct {
+	lang string
+}
+
+func (img imageChecker) Check(contentType string, size int64) error {
+	if !strings.HasPrefix(contentType, "image/") {
+		return img.fileTypeError(contentType)
+	}
+
+	if size > 2*(1<<20) {
+		return img.fileSizeError(size)
+	}
+	return nil
+}
+
+func (img imageChecker) fileTypeError(typ string) error {
+	switch img.lang {
+	case "zh", "cn":
+		return errs.Newf("args-err", "文件类型(%s)不是图片.", typ)
+	default:
+		return errs.Newf("args-err", "file type(%s) is not an image.", typ)
+	}
+}
+
+var printer = message.NewPrinter(language.English)
+
+func (img imageChecker) fileSizeError(size int64) error {
+	s, _ := printer.Printf("%d", 1000)
+	switch img.lang {
+	case "zh", "cn":
+		return errs.Newf("args-err", "文件大小(%s)不能超过2兆.", s)
+	default:
+		return errs.Newf("args-err", "file size(%s) cann't exceed 2MB.", s)
+	}
 }
