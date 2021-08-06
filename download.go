@@ -82,7 +82,7 @@ func (b *Bucket) Download(db DB, resp http.ResponseWriter, file string, object s
 }
 
 func (b *Bucket) writeHeader(db DB, resp http.ResponseWriter, file string) error {
-	row := db.QueryRow(
+	row := b.getDB(db).QueryRow(
 		fmt.Sprintf(`SELECT type FROM %s WHERE hash = %s`, b.FilesTable, quote(file)),
 	)
 	var contentType string
