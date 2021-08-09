@@ -124,3 +124,22 @@ func FileHashes(strs []string) ([]string, error) {
 	}
 	return hashes, nil
 }
+
+// TryFileHash try to returns file hash from a url or file hash.
+func TryFileHash(str string) (string, error) {
+	if str == "" {
+		return "", nil
+	}
+	if IsHash(str) {
+		return str, nil
+	}
+	uri, err := url.Parse(str)
+	if err != nil {
+		return "", err
+	}
+	hash := uri.Query().Get("f")
+	if !IsHash(hash) {
+		return "", nil
+	}
+	return hash, nil
+}

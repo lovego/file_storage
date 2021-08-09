@@ -16,8 +16,8 @@ import (
 
 // DownloadURL make the url for file download
 func (b *Bucket) DownloadURL(o LinkObject, fileHash string) string {
-	if fileHash == "" {
-		return ""
+	if fileHash == "" || !IsHash(fileHash) {
+		return fileHash
 	}
 	q := url.Values{}
 	q.Set("b", b.Name)     // bucket
