@@ -93,10 +93,8 @@ func (b *Bucket) save(
 		}
 	}
 	for i := range records {
-		if records[i].New {
-			if err := b.saveFile(records[i].File, records[i].Hash); err != nil {
-				return nil, err
-			}
+		if err := b.saveFile(records[i].File, records[i].Hash); err != nil {
+			return nil, err
 		}
 	}
 	return hashes, nil
@@ -126,6 +124,12 @@ func (b *Bucket) saveFile(file io.Reader, hash string) error {
 }
 
 func (b *Bucket) writeFile(file io.Reader, destPath string) error {
+	if _, err := os.Stat(destPath); err == nil {
+		return nil
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return err
 	}

@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"github.com/lovego/slice"
 )
 
 func (b *Bucket) createFilesTable(db DB) error {
@@ -33,7 +31,6 @@ type fileRecord struct {
 	Type string
 	Size int64
 	File io.Reader
-	New  bool
 }
 
 func (b *Bucket) createFileRecords(
@@ -94,9 +91,6 @@ func (b *Bucket) insertFileRecords(db DB, records []fileRecord) error {
 			return err
 		}
 		inserted = append(inserted, hash)
-	}
-	for i := range records {
-		records[i].New = slice.ContainsString(inserted, records[i].Hash)
 	}
 
 	return err
