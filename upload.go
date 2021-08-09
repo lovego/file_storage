@@ -228,7 +228,7 @@ func (img imageChecker) fileTypeError(typ string) error {
 var printer = message.NewPrinter(language.English)
 
 func (img imageChecker) fileSizeError(size int64) error {
-	s, _ := printer.Printf("%d", 1000)
+	s := printer.Sprintf("%d", size)
 	switch img.lang {
 	case "zh", "cn":
 		return errs.Newf("args-err", "文件大小(%s)不能超过2兆.", s)
