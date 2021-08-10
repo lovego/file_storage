@@ -156,6 +156,7 @@ func (b *Bucket) writeFile(file io.Reader, destPath string) error {
 	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
 		return err
 	}
+	// prevent overwrite by os.O_EXCL
 	destFile, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		if os.IsExist(err) {
