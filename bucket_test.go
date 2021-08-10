@@ -40,6 +40,16 @@ func testUpload() []string {
 	return files
 }
 
+func ExampleBucket_SaveFiles() {
+	files, err := testBucket.SaveFiles(nil, nil, "linkObject", "LICENSE")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(files)
+	// Output:
+	// [y_-6r_79lAd8cpzmKuK-W0u7_ZulcxaquXsi308-mqk]
+}
+
 const testFile1 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF1"
 const testFile2 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF2"
 const testFile3 = "TEaLOxaZn9lXgYlXbV93DLShatn8oOeYolHwClSofF3"

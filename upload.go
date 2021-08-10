@@ -52,13 +52,36 @@ func (b *Bucket) Upload(
 	return b.Save(db, fileCheck, object, files...)
 }
 
+// SaveFiles save files specified by paths into bucket.
+func (b *Bucket) SaveFiles(
+	db DB, fileCheck func(string, int64) error, object string, paths ...string,
+) (fileHashes []string, err error) {
+	var files = make([]File, len(paths))
+	for i := range paths {
+		f, err := os.Open(paths[i])
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		files[i].IO = f
+
+		info, err := os.Stat(paths[i])
+		if err != nil {
+			return nil, err
+		}
+		files[i].Size = info.Size()
+	}
+
+	return b.Save(db, fileCheck, object, files...)
+}
+
 // File reprents the file to store.
 type File struct {
 	IO   io.ReadSeeker
 	Size int64
 }
 
-// Save file into storage.
+// Save save files into bucket.
 func (b *Bucket) Save(
 	db DB, fileCheck func(string, int64) error, object string, files ...File,
 ) (fileHashes []string, err error) {
