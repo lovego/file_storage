@@ -247,9 +247,9 @@ func (img imageChecker) Check(contentType string, size int64) error {
 func (img imageChecker) fileTypeError(typ string) error {
 	switch img.lang {
 	case "zh", "cn":
-		return errs.Newf("args-err", "文件类型(%s)不是图片.", typ)
+		return errs.New("args-err", "文件类型不是图片.").SetData(typ)
 	default:
-		return errs.Newf("args-err", "file type(%s) is not an image.", typ)
+		return errs.New("args-err", "file type is not an image.").SetData(typ)
 	}
 }
 
@@ -259,8 +259,8 @@ func (img imageChecker) fileSizeError(size int64) error {
 	s := printer.Sprintf("%d", size)
 	switch img.lang {
 	case "zh", "cn":
-		return errs.Newf("args-err", "文件大小(%s)不能超过2兆.", s)
+		return errs.New("args-err", "文件大小不能超过2兆.").SetData(s)
 	default:
-		return errs.Newf("args-err", "file size(%s) cann't exceed 2MB.", s)
+		return errs.New("args-err", "file size cann't exceed 2MB.").SetData(s)
 	}
 }

@@ -208,5 +208,5 @@ func ExampleGetContentHash() {
 
 func ExampleImageChecker() {
 	fmt.Println(imageChecker{"zh"}.fileSizeError(3123456))
-	// Output: args-err: 文件大小(3,123,456)不能超过2兆.
+	// Output: args-err: 文件大小不能超过2兆.
 }
