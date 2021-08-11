@@ -58,10 +58,12 @@ The location prefix and alias path should be set according to RedirectPathPrefix
 */
 func (b *Bucket) Download(db DB, resp http.ResponseWriter, file string, object string) error {
 	if err := CheckHash(file); err != nil {
+		resp.WriteHeader(http.StatusBadRequest)
 		return err
 	}
 	if object != "" {
 		if err := b.EnsureLinked(db, object, file); err != nil {
+			resp.WriteHeader(http.StatusBadRequest)
 			return err
 		}
 	}
@@ -75,6 +77,10 @@ func (b *Bucket) Download(db DB, resp http.ResponseWriter, file string, object s
 
 	f, err := os.Open(filepath.Join(b.Dir, b.FilePath(file)))
 	if err != nil {
+		if os.IsNotExist(err) {
+			resp.WriteHeader(http.StatusNotFound)
+			return nil
+		}
 		return err
 	}
 	defer f.Close()
