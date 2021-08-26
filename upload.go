@@ -139,6 +139,9 @@ func (b *Bucket) saveFile(file io.Reader, hash string) error {
 		srcPath = tempFile
 	}
 	for _, addr := range b.otherMachines {
+		if err := exec.Command("ssh", addr, "mkdir", "-p", filepath.Dir(destPath)).Run(); err != nil {
+			return err
+		}
 		if err := exec.Command("scp", srcPath, addr+":"+destPath).Run(); err != nil {
 			return err
 		}
