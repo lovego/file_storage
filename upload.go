@@ -77,7 +77,7 @@ func (b *Bucket) SaveFiles(
 
 // File reprents the file to store.
 type File struct {
-	IO   io.ReadSeeker
+	IO   io.ReadSeeker // bytes.Reader and strings.Reader implemented this interface.
 	Size int64
 }
 
