@@ -53,7 +53,7 @@ func (b *Bucket) Init(db DB) error {
 	} else {
 		b.Dir = filepath.Clean(b.Dir)
 	}
-	if b.Dir[0] != '/' {
+	if !filepath.IsAbs(b.Dir) {
 		return errors.New("Dir is not an absolute path")
 	}
 	if b.DirDepth == 0 {
