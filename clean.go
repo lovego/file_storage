@@ -2,8 +2,8 @@ package filestorage
 
 import (
 	"fmt"
-	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"time"
 )
@@ -38,7 +38,7 @@ func (b *Bucket) clean(cleanAfter time.Duration) error {
 			return err
 		}
 		for _, file := range files {
-			if err := b.cleanFile(file); err != nil {
+			if err := b.deleteFile(file); err != nil {
 				return err
 			}
 		}
@@ -73,40 +73,27 @@ func (b *Bucket) cleanDB(tx DB, cleanAfter time.Duration) ([]string, error) {
 	return files, nil
 }
 
-func (b *Bucket) cleanFile(file string) error {
-	var filePath = filepath.Join(b.Dir, b.FilePath(file))
-	if err := os.Remove(filePath); err != nil && !os.IsNotExist(err) {
-		return err
-	}
-	var dir = filepath.Dir(filePath)
-	for len(dir) > len(b.Dir) {
-		if ok, err := emptyDir(dir); err != nil {
+func (b *Bucket) deleteFile(hash string) error {
+	var dir = b.FileDir(hash)
+	var path = filepath.Join(dir, hash)
+	var script = fmt.Sprintf(
+		`cd %s; test -f %s && rm -f %s && rmdir -p --ignore-fail-on-non-empty %s || true`,
+		b.Dir, path, path, dir,
+	)
+
+	if b.localMachine {
+		var cmd = exec.Command("bash", "-c", script)
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		if err := cmd.Run(); err != nil {
 			return err
-		} else if ok {
-			if err := os.Remove(dir); err != nil && !os.IsNotExist(err) {
-				return err
-			}
-		} else {
-			break
 		}
-		dir = filepath.Dir(dir)
+	}
+	for _, addr := range b.otherMachines {
+		var cmd = exec.Command("ssh", addr, script)
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		if err := cmd.Run(); err != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-func emptyDir(name string) (bool, error) {
-	f, err := os.Open(name)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
-	}
-	defer f.Close()
-
-	_, err = f.Readdirnames(1)
-	if err == io.EOF {
-		return true, nil
-	}
-	return false, err // Either not empty or error, suits both cases
 }

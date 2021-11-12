@@ -203,12 +203,16 @@ func (b *Bucket) parseMachines() error {
 
 // FilePath returns the file path to store on disk.
 func (b *Bucket) FilePath(hash string) string {
+	return filepath.Join(b.FileDir(hash), hash)
+}
+
+func (b *Bucket) FileDir(hash string) string {
 	var path string
 	var i uint8
 	for ; i < b.DirDepth; i++ {
 		path = filepath.Join(path, hash[i:i+1])
 	}
-	return filepath.Join(path, hash)
+	return path
 }
 
 func runInTx(db DB, work func(DB) error) error {
