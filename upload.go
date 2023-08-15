@@ -282,7 +282,7 @@ var printer = message.NewPrinter(language.English)
 
 func (img imageChecker) fileSizeError(size int64) error {
 	s := printer.Sprintf("%d", size)
-	msg := humanize.Bytes(uint64(img.maxSize))
+	msg := humanize.IBytes(uint64(img.maxSize))
 	switch img.lang {
 	case "zh", "cn":
 		return errs.Newf("args-err", "文件大小不能超过%s.", msg).SetData(s)
