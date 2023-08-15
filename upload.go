@@ -12,14 +12,28 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/lovego/addrs"
 	"github.com/lovego/errs"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
 )
 
+const (
+	defaultMaxSize int64 = 2 * (1 << 20)
+	readSize       int64 = 10 * (1 << 20)
+)
+
 func UploadImages(req *http.Request, lang string) ([]string, error) {
-	if err := req.ParseMultipartForm(10 * (1 << 20)); err != nil {
+	return UploadWithMaxSize(req, lang, readSize)
+}
+
+func UploadWithMaxSize(req *http.Request, lang string, maxSize int64) ([]string, error) {
+	var size = readSize
+	if maxSize > readSize {
+		size = maxSize
+	}
+	if err := req.ParseMultipartForm(size); err != nil {
 		return nil, err
 	}
 	files := req.MultipartForm.File["file"]
@@ -32,7 +46,7 @@ func UploadImages(req *http.Request, lang string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bucket.Upload(nil, imageChecker{lang}.Check, q.Get("linkObject"), files...)
+	return bucket.Upload(nil, imageChecker{lang, maxSize}.Check, q.Get("linkObject"), files...)
 }
 
 // Upload files, if object is not empty, the files are linked to it.
@@ -237,15 +251,19 @@ func runInTx(db DB, work func(DB) error) error {
 }
 
 type imageChecker struct {
-	lang string
+	lang    string
+	maxSize int64
 }
 
 func (img imageChecker) Check(contentType string, size int64) error {
 	if !strings.HasPrefix(contentType, "image/") {
 		return img.fileTypeError(contentType)
 	}
+	if img.maxSize <= 0 {
+		img.maxSize = defaultMaxSize
+	}
 
-	if size > 2*(1<<20) {
+	if size > img.maxSize {
 		return img.fileSizeError(size)
 	}
 	return nil
@@ -264,10 +282,11 @@ var printer = message.NewPrinter(language.English)
 
 func (img imageChecker) fileSizeError(size int64) error {
 	s := printer.Sprintf("%d", size)
+	msg := humanize.Bytes(uint64(img.maxSize))
 	switch img.lang {
 	case "zh", "cn":
-		return errs.New("args-err", "文件大小不能超过2兆.").SetData(s)
+		return errs.Newf("args-err", "文件大小不能超过%s.", msg).SetData(s)
 	default:
-		return errs.New("args-err", "file size cann't exceed 2MB.").SetData(s)
+		return errs.Newf("args-err", "file size cann't exceed %s.", msg).SetData(s)
 	}
 }
