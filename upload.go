@@ -29,6 +29,15 @@ func UploadImages(req *http.Request, lang string) ([]string, error) {
 }
 
 func UploadWithMaxSize(req *http.Request, lang string, maxSize int64) ([]string, error) {
+	q := req.URL.Query()
+	bucket, err := GetBucket(q.Get("bucket"))
+	if err != nil {
+		return nil, err
+	}
+	return bucket.UploadDefault(req, lang, maxSize)
+}
+
+func (b *Bucket) UploadDefault(req *http.Request, lang string, maxSize int64) ([]string, error) {
 	var size = readSize
 	if maxSize > readSize {
 		size = maxSize
@@ -41,12 +50,7 @@ func UploadWithMaxSize(req *http.Request, lang string, maxSize int64) ([]string,
 		return nil, errs.New("args-err", "no files")
 	}
 	q := req.URL.Query()
-
-	bucket, err := GetBucket(q.Get("bucket"))
-	if err != nil {
-		return nil, err
-	}
-	return bucket.Upload(nil, imageChecker{lang, maxSize}.Check, q.Get("linkObject"), files...)
+	return b.Upload(nil, imageChecker{lang, maxSize}.Check, q.Get("linkObject"), files...)
 }
 
 // Upload files, if object is not empty, the files are linked to it.
