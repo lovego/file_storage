@@ -15,7 +15,8 @@ import (
 )
 
 // DownloadURL make the url for file download
-func (b *Bucket) DownloadURL(linkObject interface{}, fileHash string) string {
+// hosts support specified download url host
+func (b *Bucket) DownloadURL(linkObject interface{}, fileHash string, hosts ...string) string {
 	if fileHash == "" || !IsHash(fileHash) {
 		return fileHash
 	}
@@ -25,14 +26,20 @@ func (b *Bucket) DownloadURL(linkObject interface{}, fileHash string) string {
 	if linkObject != nil {
 		q.Set("o", fmt.Sprint(linkObject)) // link object
 	}
+	if len(hosts) > 0 {
+		u, _ := url.Parse(b.DownloadURLPrefix)
+		u.Host = hosts[0]
+		return u.String() + "?" + q.Encode()
+	}
 	return b.DownloadURLPrefix + "?" + q.Encode()
 }
 
-// DownloadURL make the urls for files download
-func (b *Bucket) DownloadURLs(linkObject interface{}, fileHashes []string) []string {
+// DownloadURLs make the urls for files download
+// hosts support specified download url host
+func (b *Bucket) DownloadURLs(linkObject interface{}, fileHashes []string, hosts ...string) []string {
 	urls := make([]string, len(fileHashes))
 	for i, hash := range fileHashes {
-		urls[i] = b.DownloadURL(linkObject, hash)
+		urls[i] = b.DownloadURL(linkObject, hash, hosts...)
 	}
 	return urls
 }
