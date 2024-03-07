@@ -26,7 +26,7 @@ func (b *Bucket) DownloadURL(linkObject interface{}, fileHash string, hosts ...s
 	if linkObject != nil {
 		q.Set("o", fmt.Sprint(linkObject)) // link object
 	}
-	if len(hosts) > 0 {
+	if len(hosts) > 0 && hosts[0] != "" {
 		u, _ := url.Parse(b.DownloadURLPrefix)
 		u.Host = hosts[0]
 		return u.String() + "?" + q.Encode()
