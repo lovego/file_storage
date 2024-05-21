@@ -16,6 +16,7 @@ func Open(req *http.Request) ([]byte, error) {
 	}
 	return bucket.ReadFile(nil, q.Get("f"), q.Get("o"))
 }
+
 func GetFile(req *http.Request) (*os.File, error) {
 	q := req.URL.Query()
 	bucket, err := GetBucket(q.Get("b"))
@@ -24,6 +25,7 @@ func GetFile(req *http.Request) (*os.File, error) {
 	}
 	return bucket.GetFile(nil, q.Get("f"), q.Get("o"))
 }
+
 func (b *Bucket) GetFile(db DB, file string, object string) (*os.File, error) {
 	if err := CheckHash(file); err != nil {
 		return nil, err
@@ -43,6 +45,7 @@ func (b *Bucket) GetFile(db DB, file string, object string) (*os.File, error) {
 	}
 	return f, nil
 }
+
 func (b *Bucket) ReadFile(db DB, file string, object string) ([]byte, error) {
 	if err := CheckHash(file); err != nil {
 		return nil, err
